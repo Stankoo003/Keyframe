@@ -87,6 +87,18 @@ aws s3 cp "$SOURCE_DIR" "$DEST" \
   --endpoint-url "$ENDPOINT" \
   $DRY_RUN
 
+# ── Prolaz 3: posteri ─────────────────────────────────────────────────────────
+
+echo
+echo "── .jpg → image/jpeg"
+aws s3 cp "$SOURCE_DIR" "$DEST" \
+  --recursive \
+  --exclude "*" --include "*.jpg" \
+  --content-type "image/jpeg" \
+  --cache-control "public, max-age=86400" \
+  --endpoint-url "$ENDPOINT" \
+  $DRY_RUN
+
 echo
 if [[ -n "$DRY_RUN" ]]; then
   echo "dry run gotov — ništa nije poslato"

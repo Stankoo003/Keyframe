@@ -22,7 +22,10 @@ npm run db:up
 # 4. Primeni migracije na bazu
 npm run db:migrate
 
-# 5. Startuj dev server
+# 5. Napuni bazu klipovima
+npm run db:seed
+
+# 6. Startuj dev server
 npm run dev
 ```
 
@@ -47,6 +50,7 @@ curl http://localhost:3000/api/health
 | `npm run db:down`          | Gasi kontejner (podaci ostaju u volume-u)                  |
 | `npm run db:reset`         | **Briše podatke**, diže bazu iznova i primenjuje migracije |
 | `npm run db:migrate`       | Kreira i primenjuje migraciju iz izmena u `schema.prisma`  |
+| `npm run db:seed`          | Puni bazu enkodiranim klipovima (idempotentno)             |
 | `npm run db:deploy`        | Primenjuje postojeće migracije (za CI/produkciju)          |
 | `npm run db:generate`      | Regeneriše Prisma klijent                                  |
 | `npm run db:studio`        | Prisma Studio — GUI nad bazom                              |
@@ -77,6 +81,7 @@ src/
 │  └─ ui/           # generički, reusable elementi
 ├─ server/          # kod koji sme da radi samo na serveru
 │  ├─ db.ts         # Prisma klijent (singleton)
+│  ├─ videos.ts     # čitanje videa + gradnja punih URL-ova
 │  └─ actions/      # Server Actions
 ├─ domain/          # čista domenska logika i tipovi, bez I/O
 ├─ lib/             # deljeni helperi
@@ -85,6 +90,7 @@ src/
 
 prisma/
 ├─ schema.prisma    # modeli
+├─ seed.ts          # početni podaci
 └─ migrations/      # istorija migracija (u gitu)
 
 scripts/            # media pipeline (bash)
@@ -93,6 +99,73 @@ public/media/hls/   # HLS izlaz — generisano, nije u gitu
 ```
 
 **Pravilo:** `app/` i `components/` nikad ne importuju Prismu direktno — pristup bazi ide isključivo kroz `src/server/`. `src/server/db.ts` je označen sa `server-only` pa build pukne ako se to prekrši.
+
+## Model podataka
+
+```
+Video 1 ──< N Chapter
+```
+
+| `Video`           |                                                              |
+| ----------------- | ------------------------------------------------------------ |
+| `slug`            | čitljiv id, `@unique`, poklapa se sa imenom foldera u `hls/` |
+| `title`           | naziv                                                        |
+| `description`     | opis, opciono                                                |
+| `durationSeconds` | trajanje u **celim sekundama**                               |
+| `posterPath`      | relativna putanja do postera                                 |
+| `manifestPath`    | relativna putanja do master playliste                        |
+| `published`       | podrazumevano `false`                                        |
+
+| `Chapter`      |                                                         |
+| -------------- | ------------------------------------------------------- |
+| `videoId`      | FK ka `Video`, `onDelete: Cascade`                      |
+| `title`        | naziv poglavlja                                         |
+| `startSeconds` | početak u **celim sekundama** od početka videa          |
+| `order`        | redosled prikaza, 0-bazno, `@@unique([videoId, order])` |
+
+### Jedinica vremena
+
+Sva vremena su **cele sekunde**. Jedinica stoji **u imenu polja** (`durationSeconds`, `startSeconds`) umesto u komentaru — `duration` bi ostavilo nedoumicu da li su sekunde ili milisekunde, a ime polja se ne može pročitati pogrešno.
+
+### Putanje su relativne — i to je bitno
+
+U bazi stoji:
+
+```
+hls/clip-01-bars/master.m3u8
+```
+
+Ne `/hls/...`, ne `https://pub-xxx.r2.dev/hls/...`.
+
+Base URL se dodaje **pri čitanju**, u [src/server/videos.ts](src/server/videos.ts), kroz `mediaUrl()`. To je jedino mesto gde se relativna putanja pretvara u pun URL.
+
+Zašto: bazu čita i lokalno okruženje i produkcija. Da apsolutni URL stoji unutra, isti podaci ne bi radili na oba mesta, a promena CDN-a bi tražila `UPDATE` nad svim redovima.
+
+Dokaz da radi — bez ijedne izmene u bazi, samo promenom `.env.local`:
+
+| `NEXT_PUBLIC_MEDIA_BASE_URL` | URL na stranici                                      |
+| ---------------------------- | ---------------------------------------------------- |
+| `""`                         | `/media/hls/clip-01-bars/poster.jpg`                 |
+| `https://pub-xxx.r2.dev`     | `https://pub-xxx.r2.dev/hls/clip-01-bars/poster.jpg` |
+
+### Seed
+
+```bash
+npm run db:seed
+```
+
+[prisma/seed.ts](prisma/seed.ts) upisuje 4 enkodirana klipa. **Idempotentan je** — `upsert` po `slug`-u, pa uzastopna pokretanja daju isto stanje umesto duplikata.
+
+- **Trajanja su stvarna**, izmerena sa `ffprobe -show_entries format=duration` (24, 28, 20, 26 s)
+- **Poglavlja padaju na granice HLS segmenata** (0s, 6s, 12s…). Granica segmenta je i keyframe, pa skok na poglavlje ne traži dekodiranje unazad — plejer kreće tačno odatle
+
+Provera da nijedan apsolutni URL nije završio u bazi:
+
+```sql
+SELECT COUNT(*) FROM "Video"
+WHERE "manifestPath" LIKE '%://%' OR "manifestPath" LIKE '/%';
+-- mora vratiti 0
+```
 
 ## Media pipeline (HLS)
 

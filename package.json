@@ -15,6 +15,7 @@
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && npm run db:up && prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
@@ -47,11 +48,13 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   },
   "allowScripts": {
     "prisma": true,
     "@prisma/engines": true,
-    "unrs-resolver": true
+    "unrs-resolver": true,
+    "esbuild": true
   }
 }

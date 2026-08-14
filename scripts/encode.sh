@@ -168,6 +168,19 @@ echo
 
 ffmpeg "${ARGS[@]}"
 
+# ── Poster ────────────────────────────────────────────────────────────────────
+#
+# Jedan frejm sa 2. sekunde — prvi kadar je cesto crn ili pretapanje.
+# -ss pre -i radi brzi seek (preskace dekodiranje do te tacke).
+
+POSTER_AT=2
+[[ "${SRC_HEIGHT:-0}" -gt 0 ]] || POSTER_AT=0
+
+ffmpeg -y -hide_banner -loglevel error \
+  -ss "$POSTER_AT" -i "$SRC" \
+  -frames:v 1 -vf "scale=640:-2" -q:v 3 \
+  "$OUT/poster.jpg"
+
 # ── Rezime ────────────────────────────────────────────────────────────────────
 
 echo
