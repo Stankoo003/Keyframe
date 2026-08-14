@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Prisma generisani klijent.
     "src/generated/**",
+    // HLS segmenti su .ts fajlovi (MPEG-TS), ne TypeScript — parser puca na njima.
+    "media/**",
   ]),
 ]);
 

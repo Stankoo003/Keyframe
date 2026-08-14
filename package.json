@@ -17,7 +17,12 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "media:clips": "scripts/make-sample-clips.sh",
+    "media:encode": "scripts/encode.sh",
+    "media:encode:all": "scripts/encode-all.sh",
+    "media:verify": "scripts/verify-hls.sh",
+    "media:build": "npm run media:clips && npm run media:encode:all"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
