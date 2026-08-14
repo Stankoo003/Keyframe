@@ -22,7 +22,9 @@
     "media:encode": "scripts/encode.sh",
     "media:encode:all": "scripts/encode-all.sh",
     "media:verify": "scripts/verify-hls.sh",
-    "media:build": "npm run media:clips && npm run media:encode:all"
+    "media:build": "npm run media:clips && npm run media:encode:all",
+    "media:sync": "scripts/sync-r2.sh",
+    "media:verify:cdn": "scripts/verify-cdn.sh"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

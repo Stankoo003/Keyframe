@@ -55,6 +55,8 @@ curl http://localhost:3000/api/health
 | `npm run media:encode:all` | Enkodira sve iz `media/source/` + verifikuje               |
 | `npm run media:encode`     | Enkodira jedan fajl                                        |
 | `npm run media:verify`     | Proverava HLS izlaz i keyframe alignment                   |
+| `npm run media:sync`       | Šalje `public/media/hls` na Cloudflare R2                  |
+| `npm run media:verify:cdn` | HEAD provera content-type-ova i CORS-a na CDN-u            |
 
 ## Environment
 
@@ -96,7 +98,7 @@ public/media/hls/   # HLS izlaz — generisano, nije u gitu
 
 Aplikacija servira video kao **HLS** sa tri renditiona (360p / 540p / 720p), da bi plejer mogao da menja kvalitet u hodu prema propusnom opsegu.
 
-Media se **ne drži u gitu** — regeneriše se skriptama. Segmenti se objavljuju na CDN u kasnijem koraku.
+Media se **ne drži u gitu** — regeneriše se skriptama, a objavljuje na Cloudflare R2 (vidi [CDN](#cdn-cloudflare-r2)).
 
 ### Preduslov
 
@@ -244,8 +246,85 @@ ffmpeg -i http://localhost:3000/media/hls/clip-01-bars/master.m3u8 -f null -
 
 > Safari pušta `.m3u8` direktno u `<video>`. Chrome i Firefox nemaju nativni HLS — treba im hls.js, što dolazi sa plejerom u sledećem koraku.
 
+## CDN (Cloudflare R2)
+
+Media se objavljuje na **Cloudflare R2** — izabran jer **ne naplaćuje egress**. Kod videa je odlazni saobraćaj dominantan trošak; isti setup na S3 se naplaćuje po svakom pregledu.
+
+Sync je **jednokratan**, ne pipeline: pokreće se ručno kad se media regeneriše.
+
+### Odakle app povlači media
+
+Kontroliše jedna promenljiva u `.env.local`:
+
+```bash
+NEXT_PUBLIC_MEDIA_BASE_URL=""                         # lokalno iz public/media
+NEXT_PUBLIC_MEDIA_BASE_URL="https://pub-xxx.r2.dev"   # sa CDN-a
+```
+
+Svi URL-ovi se grade kroz `mediaUrl()` iz [src/lib/media.ts](src/lib/media.ts) — **nijedan apsolutni media URL ne stoji u kodu**. Prefiks `NEXT_PUBLIC_` je obavezan jer plejer radi u browseru, pa vrednost mora da stigne do klijenta.
+
+### Prvo podešavanje bucketa
+
+Radi se jednom, kroz Cloudflare dashboard:
+
+1. **R2** → **Create bucket** → ime `keyframe-media`
+2. **R2** → **API** → **Manage API tokens** → `Object Read & Write`, ograničen na taj bucket
+3. Bucket → **Settings** → **CORS Policy** → politika ispod
+4. Bucket → **Settings** → **Public Development URL** → **Allow Access** → daje `https://pub-xxxxx.r2.dev`
+5. Dobijene vrednosti u `.env.local` (vidi [.env.example](.env.example))
+
+CORS politika:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:3000"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range", "Content-Type"],
+    "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges", "ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+> Kad se app deploy-uje, dodaj i tu adresu u `AllowedOrigins`. Bez toga segmenti pucaju sa CORS greškom — najčešći uzrok "radi lokalno, puca na produkciji" kod HLS-a.
+
+### Upload
+
+```bash
+npm run media:sync -- --dry-run   # pokaže šta bi poslao
+npm run media:sync                # pošalje
+npm run media:verify:cdn          # proveri
+```
+
+[scripts/sync-r2.sh](scripts/sync-r2.sh) šalje u **dva prolaza**, po jedan za svaki tip:
+
+| Prolaz  | Content-Type                    | Cache-Control                         |
+| ------- | ------------------------------- | ------------------------------------- |
+| `.m3u8` | `application/vnd.apple.mpegurl` | `public, max-age=60`                  |
+| `.ts`   | `video/mp2t`                    | `public, max-age=31536000, immutable` |
+
+Dva prolaza su nužna: object storage svemu stavlja `application/octet-stream`, što plejeri odbijaju, a `--content-type` važi za ceo prolaz.
+
+### Provera
+
+```bash
+npm run media:verify:cdn
+```
+
+[scripts/verify-cdn.sh](scripts/verify-cdn.sh) šalje HEAD zahteve i proverava status, Content-Type i `Access-Control-Allow-Origin` za master, sve rendition playliste i segmente.
+
+Ručno, na jednom objektu:
+
+```bash
+curl -sI -H "Origin: http://localhost:3000" \
+  https://pub-xxxxx.r2.dev/hls/clip-01-bars/360p/seg_000.ts
+```
+
+> **`curl` nije dovoljan dokaz za CORS** — ne primenjuje same-origin politiku, pa prolazi i kad je bucket pogrešno podešen. Zato početna stranica ima `MediaProbe` komponentu ([src/components/media-probe.tsx](src/components/media-probe.tsx)) koja povlači svaku master playlistu **iz browsera**. Otvori <http://localhost:3000> — četiri zelena reda znače da CORS stvarno radi.
+
 ## Napomene
 
 - Prisma 7 radi preko **driver adaptera** (`@prisma/adapter-pg`), nema više ugrađenog Rust engine-a.
 - Generisani klijent ide u `src/generated/prisma` i gitignore-ovan je; `postinstall` ga pravi na svakom `npm install`.
-- `media/` i `public/media/` su gitignore-ovani. Requirements traže commit medija, acceptance criteria traže gitignore — ovde važi acceptance, jer segmenti se objavljuju na CDN u kasnijem koraku.
+- `media/` i `public/media/` su gitignore-ovani. Requirements traže commit medija, acceptance criteria traže gitignore — ovde važi acceptance, jer segmenti se objavljuju na Cloudflare R2 (vidi sekciju CDN).
