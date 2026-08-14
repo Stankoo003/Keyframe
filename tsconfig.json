@@ -35,5 +35,5 @@
     "**/*.mts"
   ],
   // media/ je izuzet jer su HLS segmenti .ts fajlovi (MPEG-TS), ne TypeScript.
-  "exclude": ["node_modules", "media"]
+  "exclude": ["node_modules", "media", "public/media"]
 }

@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
     "src/generated/**",
     // HLS segmenti su .ts fajlovi (MPEG-TS), ne TypeScript — parser puca na njima.
     "media/**",
+    "public/media/**",
   ]),
 ]);
 

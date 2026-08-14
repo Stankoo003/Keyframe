@@ -46,3 +46,4 @@ next-env.d.ts
 # media pipeline — izvorni klipovi i HLS izlaz se regenerisu skriptama iz scripts/.
 # Segmenti se objavljuju na CDN, ne drze se u gitu. Vidi "Media pipeline" u README-u.
 /media/
+/public/media/

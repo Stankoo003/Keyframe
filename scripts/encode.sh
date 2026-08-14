@@ -5,7 +5,7 @@
 # Upotreba:
 #   scripts/encode.sh <izvorni-fajl> [izlazni-folder]
 #   scripts/encode.sh media/source/clip-01.mp4
-#   scripts/encode.sh media/source/clip-01.mp4 media/hls/clip-01
+#   scripts/encode.sh media/source/clip-01.mp4 public/media/clip-01
 #
 # Ako se izlazni folder izostavi, koristi se $OUT_ROOT/<ime-fajla-bez-ekstenzije>.
 #
@@ -30,7 +30,9 @@ set -euo pipefail
 
 SEGMENT_SECONDS=6
 
-OUT_ROOT="${OUT_ROOT:-media/hls}"
+# Izlaz ide u public/ da bi Next.js servirao segmente staticki, bez route handlera.
+# U Task 0.4 se isti folder objavljuje na CDN.
+OUT_ROOT="${OUT_ROOT:-public/media/hls}"
 
 # Ladder: naziv|sirina|visina|video_bitrate|maxrate|bufsize|audio_bitrate
 # Redosled je bitan — ide od najmanje ka najvecoj varijanti.

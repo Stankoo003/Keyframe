@@ -87,7 +87,7 @@ prisma/
 
 scripts/            # media pipeline (bash)
 media/source/       # izvorni klipovi — generisano, nije u gitu
-media/hls/   # HLS izlaz — generisano, nije u gitu
+public/media/hls/   # HLS izlaz — generisano, nije u gitu
 ```
 
 **Pravilo:** `app/` i `components/` nikad ne importuju Prismu direktno — pristup bazi ide isključivo kroz `src/server/`. `src/server/db.ts` je označen sa `server-only` pa build pukne ako se to prekrši.
@@ -117,9 +117,9 @@ Ovo uradi dve stvari: napravi izvorne klipove i enkodira ih u HLS. Traje 1-2 min
 
 ```bash
 npm run media:clips                                  # 1. izvorni klipovi → media/source/
-npm run media:encode:all                             # 2. HLS ladder → media/hls/
+npm run media:encode:all                             # 2. HLS ladder → public/media/hls/
 npm run media:encode media/source/clip-01-bars.mp4   # ili jedan po jedan
-npm run media:verify media/hls/clip-01-bars   # provera postojećeg izlaza
+npm run media:verify public/media/hls/clip-01-bars   # provera postojećeg izlaza
 ```
 
 ### Izvorni klipovi
@@ -135,12 +135,14 @@ ffmpeg -i original.mp4 -ss 00:00:10 -t 25 -c copy media/source/moj-klip.mp4
 ### Šta skripta proizvodi
 
 ```
-media/hls/clip-01-bars/
+public/media/hls/clip-01-bars/
 ├─ master.m3u8          # lista varijanti sa BANDWIDTH + RESOLUTION
 ├─ 360p/index.m3u8      # + seg_000.ts, seg_001.ts, ...
 ├─ 540p/index.m3u8
 └─ 720p/index.m3u8
 ```
+
+Izlaz ide u `public/` da bi Next.js servirao fajlove statički, bez route handlera — vidi sekciju [Serviranje](#serviranje-hls-a).
 
 Ladder ([scripts/encode.sh](scripts/encode.sh), promenljiva `LADDER`):
 
@@ -169,7 +171,7 @@ Bez `-sc_threshold 0` enkoder ubacuje keyframe kad se scena naglo promeni. Pošt
 ### Provera poravnanja
 
 ```bash
-npm run media:verify media/hls/clip-01-bars
+npm run media:verify public/media/hls/clip-01-bars
 ```
 
 [scripts/verify-hls.sh](scripts/verify-hls.sh) proverava tri stvari i vraća izlazni kod 0/1 (upotrebljivo u CI-ju):
@@ -183,13 +185,67 @@ Ručna provera istog, bez skripte:
 ```bash
 ffprobe -v error -select_streams v:0 \
   -show_entries frame=pts_time,pict_type -of csv=p=0 \
-  media/hls/clip-01-bars/720p/seg_000.ts | awk -F, '$2=="I"{print $1}'
+  public/media/hls/clip-01-bars/720p/seg_000.ts | awk -F, '$2=="I"{print $1}'
 ```
 
 > Primetićeš da keyframe-ovi počinju na `1.4667` a ne na `0` — to je standardni početni PTS offset MPEG-TS kontejnera, isti za sve renditione. Bitno je da je **razmak tačno 6.000s** i da su vremena **ista u sve tri varijante**.
+
+## Serviranje HLS-a
+
+Media se servira **statički** iz `public/`, bez route handlera. Uz `npm run dev` sve je odmah dostupno:
+
+```
+http://localhost:3000/media/hls/<klip>/master.m3u8
+http://localhost:3000/media/hls/<klip>/360p/index.m3u8
+http://localhost:3000/media/hls/<klip>/360p/seg_000.ts
+```
+
+### Content-Type
+
+Next.js sam postavlja tačne vrednosti po ekstenziji, ali ih [next.config.ts](next.config.ts) i eksplicitno zakucava — u Task 0.4 iste headere treba preslikati na CDN, a neki static hostovi serviraju `.m3u8` kao `text/plain`.
+
+| Ekstenzija | Content-Type                    | Cache-Control                         |
+| ---------- | ------------------------------- | ------------------------------------- |
+| `.m3u8`    | `application/vnd.apple.mpegurl` | `public, max-age=60`                  |
+| `.ts`      | `video/mp2t`                    | `public, max-age=31536000, immutable` |
+
+Playliste se kratko keširaju jer se menjaju pri re-enkodiranju; segmenti su nepromenljivi.
+
+### CORS
+
+Sve pod `/media/` dobija `Access-Control-Allow-Origin: *` plus `Access-Control-Expose-Headers` za `Content-Range` i `Accept-Ranges` — bez toga plejer ne vidi zaglavlja potrebna za seek.
+
+Preflight (`OPTIONS`) obrađuje [src/proxy.ts](src/proxy.ts). Razlog: Next-ovo statičko serviranje ne zna za `OPTIONS` i vraća **400**, a browser traži 2xx da bi pustio cross-origin zahtev sa `Range` headerom (`Range` nije CORS-safelisted, pa uvek okida preflight).
+
+> U Next.js 16 se ovaj fajl zove `proxy.ts`; stariji naziv `middleware.ts` je deprecated.
+
+### Provera serviranja
+
+```bash
+npm run dev
+
+# content types
+curl -sI localhost:3000/media/hls/clip-01-bars/master.m3u8      | grep -i content-type
+curl -sI localhost:3000/media/hls/clip-01-bars/360p/seg_000.ts  | grep -i content-type
+
+# CORS preflight → 204
+curl -sI -X OPTIONS -H "Origin: http://example.com" \
+  localhost:3000/media/hls/clip-01-bars/360p/seg_000.ts | head -1
+
+# Range → 206 Partial Content
+curl -sI -H "Range: bytes=0-1023" \
+  localhost:3000/media/hls/clip-01-bars/360p/seg_000.ts | head -1
+
+# stvarna reprodukcija
+ffplay http://localhost:3000/media/hls/clip-01-bars/master.m3u8
+# ili bez prozora:
+ffmpeg -i http://localhost:3000/media/hls/clip-01-bars/master.m3u8 -f null -
+```
+
+> Safari pušta `.m3u8` direktno u `<video>`. Chrome i Firefox nemaju nativni HLS — treba im hls.js, što dolazi sa plejerom u sledećem koraku.
 
 ## Napomene
 
 - Prisma 7 radi preko **driver adaptera** (`@prisma/adapter-pg`), nema više ugrađenog Rust engine-a.
 - Generisani klijent ide u `src/generated/prisma` i gitignore-ovan je; `postinstall` ga pravi na svakom `npm install`.
-- `media/` je gitignore-ovan. Requirements traže commit medija, acceptance criteria traže gitignore — ovde važi acceptance, jer segmenti se objavljuju na CDN u kasnijem koraku.
+- `media/` i `public/media/` su gitignore-ovani. Requirements traže commit medija, acceptance criteria traže gitignore — ovde važi acceptance, jer segmenti se objavljuju na CDN u kasnijem koraku.

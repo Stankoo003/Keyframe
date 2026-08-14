@@ -7,5 +7,6 @@ package-lock.json
 src/generated
 prisma/migrations
 media
+public/media
 .agents
 .claude

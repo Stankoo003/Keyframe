@@ -35,7 +35,7 @@ done
 echo "═══ verifikacija"
 echo
 
-for dir in "${OUT_ROOT:-media/hls}"/*/; do
+for dir in "${OUT_ROOT:-public/media/hls}"/*/; do
   [[ -f "$dir/master.m3u8" ]] || continue
   echo "── $dir"
   "$HERE/verify-hls.sh" "$dir" || FAILED=1
