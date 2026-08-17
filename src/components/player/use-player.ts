@@ -59,6 +59,19 @@ export function usePlayer(src: string) {
   const engineRef = useRef<PlaybackEngine | null>(null);
   const [state, setState] = useState<PlayerState>(INITIAL);
 
+  /**
+   * Lanac kroz koji se kreiranje engine-a serijalizuje.
+   *
+   * `createEngine` je asinhron (dinamicki `import("hls.js")`). Bez lanca, Strict
+   * Mode montira efekat dvaput pa se drugi engine zakaci na isti <video> dok
+   * prvi jos nastaje; kad se prvi promise razresi, njegov `destroy()` otkine
+   * MediaSource drugome — slika stoji, `duration` ostane 0.
+   *
+   * Isto se desi i kad se `src` promeni brze nego sto engine stigne da nastane,
+   * pa ovo nije samo dev-problem.
+   */
+  const setupChainRef = useRef<Promise<void>>(Promise.resolve());
+
   const patch = useCallback((partial: Partial<PlayerState>) => {
     setState((prev) => ({ ...prev, ...partial }));
   }, []);
@@ -69,34 +82,47 @@ export function usePlayer(src: string) {
     if (!video) return;
 
     let disposed = false;
+    // Drzimo i lokalno: cleanup mora da moze da unisti engine i pre nego sto
+    // stigne u `engineRef`.
+    let engine: PlaybackEngine | null = null;
+
     setState(INITIAL);
 
-    createEngine(video, src)
-      .then((engine) => {
+    const setup = setupChainRef.current.then(async () => {
+      if (disposed) return;
+
+      try {
+        const created = await createEngine(video, src);
+
         if (disposed) {
-          engine.destroy();
+          created.destroy();
           return;
         }
-        engineRef.current = engine;
+
+        engine = created;
+        engineRef.current = created;
+
         patch({
           ready: true,
-          supportsLevelSelection: engine.supportsLevelSelection(),
-          currentLevel: engine.getCurrentLevel(),
+          supportsLevelSelection: created.supportsLevelSelection(),
+          currentLevel: created.getCurrentLevel(),
         });
 
-        engine.subscribe((event) => {
+        created.subscribe((event) => {
           if (event.type === "levels") patch({ levels: event.levels });
           else if (event.type === "levelswitched") patch({ currentLevel: event.level });
           else if (event.type === "error") patch({ error: event.message });
         });
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (!disposed) patch({ error: err instanceof Error ? err.message : String(err) });
-      });
+      }
+    });
+
+    setupChainRef.current = setup;
 
     return () => {
       disposed = true;
-      engineRef.current?.destroy();
+      engine?.destroy();
       engineRef.current = null;
     };
   }, [src, patch]);
