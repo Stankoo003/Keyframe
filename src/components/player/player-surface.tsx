@@ -23,6 +23,7 @@ export function PlayerSurface({
   poster,
   chapterStarts,
   currentChapter,
+  overlay,
 }: {
   player: {
     videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -36,6 +37,8 @@ export function PlayerSurface({
   chapterStarts?: readonly number[];
   /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
   currentChapter?: number;
+  /** Npr. ponuda za nastavak gledanja — crta se preko slike, iznad kontrola. */
+  overlay?: React.ReactNode;
 }) {
   const { videoRef, containerRef, state, actions } = player;
   const [idle, setIdle] = useState(false);
@@ -156,7 +159,10 @@ export function PlayerSurface({
           Greška pri reprodukciji: {state.error}
         </div>
       ) : (
-        <div
+        <>
+          {overlay}
+
+          <div
             data-visible={controlsVisible}
             className="absolute inset-x-0 bottom-0 opacity-0 transition-opacity duration-200 data-[visible=true]:opacity-100"
           >
@@ -166,7 +172,8 @@ export function PlayerSurface({
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
             />
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

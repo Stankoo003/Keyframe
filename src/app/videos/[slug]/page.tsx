@@ -60,6 +60,7 @@ export default async function VideoDetailPage({ params }: PageProps<"/videos/[sl
              * ostaju SERVER-renderovani i samo prolaze kroz njega.
              */}
             <PlayerStage
+              videoId={video.id}
               src={video.manifestUrl}
               title={video.title}
               poster={video.posterUrl}
