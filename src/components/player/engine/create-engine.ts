@@ -11,10 +11,7 @@ import type { PlaybackEngine } from "./types";
  *  2. Inače hls.js (Chrome/Firefox/Edge) preko MSE.
  *  3. Nijedan → fatalna greška.
  */
-export async function createEngine(
-  video: HTMLVideoElement,
-  src: string,
-): Promise<PlaybackEngine> {
+export async function createEngine(video: HTMLVideoElement, src: string): Promise<PlaybackEngine> {
   if (video.canPlayType("application/vnd.apple.mpegurl")) {
     return createNativeEngine(video, src);
   }

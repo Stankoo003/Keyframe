@@ -7,13 +7,7 @@ import type { PlayerActions, PlayerState } from "./use-player";
  * o hls.js-u, engine-u ni <video> elementu (samo `import type`, koji se briše u
  * kompajlu). Zato se renderuje u testu sa lažnim propsима, bez pravog strima.
  */
-export function PlayerControls({
-  state,
-  actions,
-}: {
-  state: PlayerState;
-  actions: PlayerActions;
-}) {
+export function PlayerControls({ state, actions }: { state: PlayerState; actions: PlayerActions }) {
   const { playing, currentTime, duration, buffered, volume, muted } = state;
   const bufferedPct = duration > 0 ? (buffered / duration) * 100 : 0;
 
@@ -48,7 +42,7 @@ export function PlayerControls({
           {playing ? "❚❚" : "▶"}
         </button>
 
-        <span className="tabular-nums text-white/80">
+        <span className="text-white/80 tabular-nums">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
 

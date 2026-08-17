@@ -111,7 +111,8 @@ export function usePlayer(src: string) {
         video.buffered.length > 0 ? video.buffered.end(video.buffered.length - 1) : 0;
       patch({ currentTime: video.currentTime, buffered });
     };
-    const syncMeta = () => patch({ duration: Number.isFinite(video.duration) ? video.duration : 0 });
+    const syncMeta = () =>
+      patch({ duration: Number.isFinite(video.duration) ? video.duration : 0 });
     const syncPlay = () => patch({ playing: !video.paused });
     const syncVolume = () => patch({ volume: video.volume, muted: video.muted });
 
@@ -145,8 +146,18 @@ export function usePlayer(src: string) {
     togglePlay: useCallback(() => {
       const video = videoRef.current;
       if (!video) return;
-      if (video.paused) void video.play();
-      else video.pause();
+
+      if (video.paused) {
+        // play() vraca Promise koji se odbija sa AbortError kad ga pauza pretekne
+        // pre nego sto reprodukcija stigne da krene. To je ocekivano — korisnikova
+        // kasnija akcija je pobedila. Sve ostalo pustamo dalje da se ne izgubi.
+        video.play().catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          throw error;
+        });
+      } else {
+        video.pause();
+      }
     }, []),
     seek: useCallback((time: number) => {
       if (videoRef.current) videoRef.current.currentTime = time;

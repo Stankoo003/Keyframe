@@ -1,9 +1,4 @@
-import {
-  AUTO_LEVEL,
-  type EngineEvent,
-  type EngineListener,
-  type PlaybackEngine,
-} from "./types";
+import { AUTO_LEVEL, type EngineEvent, type EngineListener, type PlaybackEngine } from "./types";
 
 /**
  * Native HLS engine — Safari (i iOS WebKit) pušta HLS direktno preko
