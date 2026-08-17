@@ -14,7 +14,7 @@
 const RAW_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? "";
 
 /** Base URL bez zavrsne kose crte. Prazan string znaci "isti origin". */
-export const MEDIA_BASE_URL = RAW_BASE.replace(/\/+$/, "");
+const MEDIA_BASE_URL = RAW_BASE.replace(/\/+$/, "");
 
 /**
  * Pravi URL ka media fajlu.
@@ -28,11 +28,3 @@ export function mediaUrl(path: string): string {
   const clean = path.replace(/^\/+/, "");
   return MEDIA_BASE_URL ? `${MEDIA_BASE_URL}/${clean}` : `/media/${clean}`;
 }
-
-/** URL master playliste za dati klip. */
-export function masterPlaylistUrl(clip: string): string {
-  return mediaUrl(`hls/${clip}/master.m3u8`);
-}
-
-/** true kad se media servira sa CDN-a umesto lokalno iz public/. */
-export const isUsingCdn = MEDIA_BASE_URL !== "";

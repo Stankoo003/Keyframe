@@ -1,129 +1,64 @@
-import { MediaProbe } from "@/components/media-probe";
-import { isUsingCdn, MEDIA_BASE_URL } from "@/lib/media";
-import { prisma } from "@/server/db";
-import { getPublishedVideos } from "@/server/videos";
+import { SiteHeader } from "@/components/site-header";
+import { VideoCard } from "@/components/video-card";
+import { listPublishedVideos } from "@/server/videos";
 
-// Prikazuje zivo stanje baze — ne sme da se prerenderuje u build-u.
+/**
+ * Browse — mreza objavljenih videa.
+ *
+ * Serverska komponenta koja cita bazu direktno. Poziv sopstvenog API-ja preko
+ * HTTP-a bio bi mrezni skok sa servera na samog sebe; `/api/videos` postoji za
+ * spoljne potrosace i deli isti kod iz `src/server/videos.ts`.
+ *
+ * Greske se NE hvataju ovde — puštaju se do `error.tsx`, da otkaz baze bude
+ * vidljiv umesto da se pretvori u praznu stranicu.
+ */
 export const dynamic = "force-dynamic";
 
-function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
-}
-
-// Server Component: cita bazu direktno, bez API poziva.
-export default async function Home() {
-  let dbStatus: "up" | "down" = "down";
-  let videos: Awaited<ReturnType<typeof getPublishedVideos>> = [];
-
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    videos = await getPublishedVideos();
-    dbStatus = "up";
-  } catch (error) {
-    console.error("[home] citanje iz baze nije uspelo:", error);
-  }
+export default async function BrowsePage() {
+  const { data: videos, meta } = await listPublishedVideos({
+    page: 1,
+    pageSize: 24,
+  });
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-6 py-12">
-      <header className="flex flex-col gap-4">
-        <h1 className="text-3xl font-semibold tracking-tight">Keyframe</h1>
+    <>
+      <SiteHeader />
 
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <dt className="text-gray-500 dark:text-gray-400">Baza</dt>
-            <dd
-              className={
-                dbStatus === "up"
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
-              }
-            >
-              {dbStatus === "up" ? "povezana" : "nedostupna"}
-            </dd>
+      <main className="px-5 pt-6.5 pb-10">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <h1 className="mb-1.5 text-2xl leading-[1.15] font-semibold tracking-[-0.02em]">
+              Browse
+            </h1>
+            <p className="text-kf-mut text-[13px] leading-[1.4]">
+              {meta.total} {meta.total === 1 ? "snimak" : "snimaka"} · podeljeni na poglavlja
+            </p>
           </div>
-
-          <div className="flex min-w-0 items-center gap-2">
-            <dt className="shrink-0 text-gray-500 dark:text-gray-400">Media</dt>
-            <dd className="truncate font-mono text-xs">
-              {isUsingCdn ? MEDIA_BASE_URL : "lokalno iz public/media"}
-            </dd>
-          </div>
-        </dl>
-      </header>
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          Videi iz baze ({videos.length})
-        </h2>
+        </div>
 
         {videos.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Nema objavljenih videa. Pokreni{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs dark:bg-gray-800">
-              npm run db:seed
-            </code>
-            .
-          </p>
+          <div className="border-kf-line bg-kf-bg mx-auto my-10 max-w-[520px] rounded-xl border border-dashed px-6.5 py-7.5 text-center">
+            <div
+              aria-hidden="true"
+              className="kf-stripes border-kf-line mx-auto mb-4.5 h-[63px] w-28 rounded-lg border"
+            />
+            <h2 className="mb-1.5 text-lg leading-[1.25] font-semibold">Katalog je prazan</h2>
+            <p className="text-kf-mut mx-auto max-w-[340px] text-[13px] leading-[1.55]">
+              Nema objavljenih snimaka. Pokreni{" "}
+              <code className="bg-kf-bg2 rounded px-1.5 py-0.5 font-mono text-xs">
+                npm run db:seed
+              </code>{" "}
+              da napuniš bazu.
+            </p>
+          </div>
         ) : (
-          <ul className="grid gap-6 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4 sm:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))] sm:gap-5.5">
             {videos.map((video) => (
-              <li
-                key={video.id}
-                className="flex flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800"
-              >
-                {video.posterUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={video.posterUrl}
-                    alt=""
-                    width={640}
-                    height={360}
-                    className="aspect-video w-full bg-gray-100 object-cover dark:bg-gray-800"
-                  />
-                )}
-
-                <div className="flex flex-1 flex-col gap-3 p-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="font-medium">{video.title}</h3>
-                    <span className="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">
-                      {formatDuration(video.durationSeconds)}
-                    </span>
-                  </div>
-
-                  {video.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{video.description}</p>
-                  )}
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {video.chapters.map((chapter) => (
-                      <span
-                        key={chapter.id}
-                        title={chapter.title}
-                        className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                      >
-                        {chapter.startSeconds}s
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-auto pt-1 text-xs">
-                    <MediaProbe url={video.manifestUrl} />
-                  </div>
-                </div>
-              </li>
+              <VideoCard key={video.id} video={video} />
             ))}
-          </ul>
+          </div>
         )}
-      </section>
-
-      <footer className="text-sm text-gray-500 dark:text-gray-400">
-        Health endpoint:{" "}
-        <a className="underline underline-offset-2" href="/api/health">
-          /api/health
-        </a>
-      </footer>
-    </main>
+      </main>
+    </>
   );
 }

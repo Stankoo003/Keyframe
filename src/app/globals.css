@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Dizajn tokeni iz mockupa "Keyframe streaming UI mockups".
+ * Vrednosti su preuzete doslovno iz LIGHT / DARK objekata u dizajnu —
+ * ne menjati napamet, nego iz istog izvora.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --kf-bg: #ffffff;
+  --kf-bg2: #f6f7f9;
+  --kf-bg3: #eef0f4;
+  --kf-line: #e4e7ec;
+
+  --kf-ink: #0e1116;
+  --kf-ink2: #3c434e;
+  --kf-mut: #767e8a;
+
+  --kf-blue: #2f6fe0;
+  --kf-blue-ink: #ffffff;
+  --kf-blue-soft: #eaf1fd;
+  --kf-blue-line: #c9dcfa;
+
+  --kf-danger: #b4232b;
+  --kf-danger-soft: #fdeceb;
+
+  --kf-stripe: rgba(14, 17, 22, 0.055);
+  --kf-skel: rgba(14, 17, 22, 0.07);
+  --kf-shade: 0 1px 2px rgba(14, 17, 22, 0.06), 0 8px 24px rgba(14, 17, 22, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --kf-bg: #0d1015;
+    --kf-bg2: #161a21;
+    --kf-bg3: #05070a;
+    --kf-line: #242a34;
+
+    --kf-ink: #e9ecf1;
+    --kf-ink2: #b3bcc8;
+    --kf-mut: #8b95a3;
+
+    /* --kf-blue ostaje isti u obe teme — akcenat je konstanta. */
+    --kf-blue-ink: #06121f;
+    --kf-blue-soft: #15243a;
+    --kf-blue-line: #2b4a7a;
+
+    --kf-danger: #ff9d9d;
+    --kf-danger-soft: rgba(255, 157, 157, 0.13);
+
+    --kf-stripe: rgba(255, 255, 255, 0.06);
+    --kf-skel: rgba(255, 255, 255, 0.08);
+    --kf-shade: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.42);
   }
 }
 
+/*
+ * `inline` znaci da utility klasa pokazuje na promenljivu, a ne na njenu
+ * vrednost — zato tamna tema radi sama, bez `dark:` prefiksa na svakoj klasi.
+ */
+@theme inline {
+  --color-kf-bg: var(--kf-bg);
+  --color-kf-bg2: var(--kf-bg2);
+  --color-kf-bg3: var(--kf-bg3);
+  --color-kf-line: var(--kf-line);
+
+  --color-kf-ink: var(--kf-ink);
+  --color-kf-ink2: var(--kf-ink2);
+  --color-kf-mut: var(--kf-mut);
+
+  --color-kf-blue: var(--kf-blue);
+  --color-kf-blue-ink: var(--kf-blue-ink);
+  --color-kf-blue-soft: var(--kf-blue-soft);
+  --color-kf-blue-line: var(--kf-blue-line);
+
+  --color-kf-danger: var(--kf-danger);
+  --color-kf-danger-soft: var(--kf-danger-soft);
+
+  --color-kf-skel: var(--kf-skel);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--kf-bg3);
+  color: var(--kf-ink);
+  font-family: var(--font-geist-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sarafirana povrsina — placeholder postera i praznih stanja iz mockupa. */
+.kf-stripes {
+  background:
+    repeating-linear-gradient(135deg, var(--kf-stripe) 0 6px, transparent 6px 12px), var(--kf-bg2);
+}
+
+@keyframes kf-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes kf-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes kf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.kf-pulse {
+  animation: kf-pulse 1.4s ease-in-out infinite;
+}
+
+.kf-sweep {
+  animation: kf-sweep 1.5s linear infinite;
+}
+
+.kf-spin {
+  animation: kf-spin 0.9s linear infinite;
+}
+
+/* Postuj sistemsko gasenje animacija. */
+@media (prefers-reduced-motion: reduce) {
+  .kf-pulse,
+  .kf-sweep,
+  .kf-spin {
+    animation: none;
+  }
 }
