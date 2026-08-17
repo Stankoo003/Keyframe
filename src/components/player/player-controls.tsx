@@ -23,11 +23,14 @@ export function PlayerControls({
   state,
   actions,
   chapterStarts = [],
+  currentChapter = -1,
 }: {
   state: PlayerState;
   actions: PlayerActions;
   /** Pocetci poglavlja u sekundama — crtice na traci. Prazno = ne crta se nista. */
   chapterStarts?: readonly number[];
+  /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
+  currentChapter?: number;
 }) {
   const { playing, currentTime, duration, bufferedRanges, volume, muted, playbackRate } = state;
 
@@ -66,23 +69,26 @@ export function PlayerControls({
         </div>
 
         {/*
-         * Granice poglavlja — tamne crtice preko trake, kao u dizajnu.
+         * Granice poglavlja.
          *
-         * Iznad `MAX_CHAPTER_TICKS` se ne crtaju: seed pravi poglavlje na svakih
-         * 6s, pa osmominutni snimak daje 84 crtice guste par piksela — traka bi
-         * izgledala isprekidano, a nijedna crtica ne bi vise nista govorila.
+         * Prvo poglavlje (start 0) se preskace — crtica na samom pocetku trake
+         * ne razdvaja nista.
+         *
+         * Crtice su `pointer-events-none`: klik meta je kartica poglavlja ispod
+         * plejera. Crtica siroka 2px je preuska za klik, a da bi bila klikabilna
+         * morala bi da stoji iznad `<input>`-a i tu bi gutala prevlacenje.
          */}
-        {chapterStarts.length <= MAX_CHAPTER_TICKS &&
-          chapterStarts
-            .filter((start) => start > 0 && start < duration)
-            .map((start) => (
-              <div
-                key={start}
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 h-2.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-[rgba(8,9,11,.85)]"
-                style={{ left: `${pct(start)}%` }}
-              />
-            ))}
+        {chapterStarts
+          .filter((start) => start > 0 && start < duration)
+          .map((start) => (
+            <div
+              key={start}
+              aria-hidden="true"
+              data-active={chapterStarts[currentChapter] === start}
+              className="data-[active=true]:bg-kf-accent pointer-events-none absolute top-1/2 h-2.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-[rgba(8,9,11,.85)]"
+              style={{ left: `${pct(start)}%` }}
+            />
+          ))}
 
         <input
           type="range"
@@ -197,12 +203,6 @@ export function PlayerControls({
  * Pilula iz dizajna — zajednicki izgled za CC, kvalitet, brzinu i fullscreen.
  * Jedan string umesto cetiri kopije, da se ne raziđu.
  */
-/**
- * Iznad ovoliko poglavlja crtice na traci prestaju da nose informaciju —
- * gusce su od thumb-a, pa se citaju kao sara, ne kao granice.
- */
-const MAX_CHAPTER_TICKS = 24;
-
 const PILL =
   "bg-kf-fill border-kf-line-strong text-kf-ink3 hover:bg-kf-fill-hover cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-[11px] leading-none tracking-[0.06em] transition-colors disabled:cursor-default disabled:hover:bg-kf-fill";
 
