@@ -82,7 +82,8 @@ src/
 │  └─ api/videos/   # katalog: lista + detalj
 ├─ components/      # prezentacione React komponente
 │  ├─ site-header.tsx, video-card.tsx
-│  ├─ player-frame.tsx, chapter-list.tsx
+│  ├─ chapter-list.tsx
+│  └─ player/         # HLS plejer: engine + kontrole
 │  └─ ui/           # generički, reusable elementi
 ├─ server/          # kod koji sme da radi samo na serveru
 │  ├─ db.ts         # Prisma klijent (singleton)
@@ -159,9 +160,34 @@ npm run db:down          # → error stanje na /
 
 ### Plejer
 
-Okvir na detalju je **za sada samo prikaz** — poster, traka sa oznakama poglavlja, red kontrola. Pravi HLS plejer dolazi u zasebnom zadatku i popunjava isti okvir.
+Na detaljnoj stranici radi **pravi HLS plejer** ([src/components/player/](src/components/player/)) sa sopstvenim kontrolama.
 
-Kontrole koje još ne rade (`CC`, `1.0×`, `720p`) su `<span aria-hidden="true">`, a ne `<button>` — tastatura i čitači ekrana ne smeju da naiđu na mrtvu kontrolu.
+### Engine
+
+Puštanje je iza `PlaybackEngine` interfejsa, pa UI ne zna koji motor vozi:
+
+| Browser                 | Engine                                         |
+| ----------------------- | ---------------------------------------------- |
+| Safari / iOS            | nativni HLS — bez biblioteke, hardverski dekod |
+| Chrome / Firefox / Edge | `hls.js` preko MSE, učitan dinamički           |
+
+Izbor je na jednom mestu, u [create-engine.ts](src/components/player/engine/create-engine.ts). Ručni izbor kvaliteta radi samo uz `hls.js` — nativni HLS ne izlaže listu nivoa, pa je selektor tada onemogućen.
+
+### Kontrole
+
+Play/pauza · nazad 5s · napred 5s · seek traka sa preuzetim opsezima · vreme · zvuk · titlovi (slot) · kvalitet · brzina · fullscreen.
+
+Prečice rade **samo kad je plejer fokusiran** (kontejner ima `tabIndex`): `Space`/`K` play, `←`/`→` ±5s, `↑`/`↓` zvuk, `F` fullscreen, `M` mute. Da slušaju na `document`, otimale bi space i strelice ostatku stranice.
+
+**Interval preskakanja je definisan jednom**, u [constants.ts](src/components/player/constants.ts) — dugmad i strelice uvoze isti `SEEK_STEP_SECONDS`, pa ne mogu da se raziđu.
+
+Titlovi su `<button disabled>` — slot stoji da raspored ne mora da se prepravlja kad stigne njihov zadatak.
+
+### Dve stvari koje nisu očigledne
+
+**Premotavanje staje `0.25s` pre kraja.** Skok na tačno `duration` nema uzorak u baferu, pa `hls.js` digne fatalnu `media error 4` i plejer ostane mrtav. Konstanta je `SEEK_END_EPSILON_SECONDS`.
+
+**Brzo uzastopno preskakanje se sabira.** Osnova je poslednja _tražena_ pozicija, ne `video.currentTime` — dok seek traje, element još prijavljuje staru poziciju, pa bi pet brzih pritisaka sletelo na +5s umesto +25s.
 
 Iz mockupa je izostavljeno ono za šta nemamo podatke: pretraga, filter pilule, godina, „Resume", grupisanje poglavlja po činovima. Lažni UI je gori od izostavljenog.
 

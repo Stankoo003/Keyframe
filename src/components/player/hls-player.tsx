@@ -1,5 +1,8 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
 import { PlayerControls } from "./player-controls";
 import { usePlayer } from "./use-player";
 
@@ -23,11 +26,108 @@ export function HlsPlayer({
   poster?: string | null;
 }) {
   const { videoRef, containerRef, state, actions } = usePlayer(src);
+  const [idle, setIdle] = useState(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Vidljivost se IZVODI, ne drži u zasebnom stanju: na pauzi su kontrole uvek
+   * tu, a dok svira zavise od mirovanja. Da se pauza rešava `setState`-om u
+   * efektu, svaki play/pause bi izazvao dodatni render.
+   */
+  const controlsVisible = !state.playing || !idle;
+
+  const scheduleHide = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setIdle(true), CONTROLS_HIDE_MS);
+  }, []);
+
+  /** Interakcija — pokaži kontrole i počni odbrojavanje ispočetka. */
+  const revealControls = useCallback(() => {
+    setIdle(false);
+    scheduleHide();
+  }, [scheduleHide]);
+
+  // Odbrojavanje teče samo dok video svira; na pauzi se poništava.
+  useEffect(() => {
+    if (!state.playing) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      return;
+    }
+
+    scheduleHide();
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [state.playing, scheduleHide]);
+
+  /**
+   * Prečice rade samo kad je plejer fokusiran — zato je na kontejneru, a ne na
+   * `document`. Inače bi space skrolovao stranicu, a strelice pomerale fokus
+   * kroz listu poglavlja pored plejera.
+   */
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      // Klizači i padajuće liste unutar kontrola sami obrađuju strelice —
+      // bez ovoga bi zvuk i premotavanje odradili duplo.
+      const target = event.target as HTMLElement;
+      const inFormControl =
+        target instanceof HTMLInputElement || target instanceof HTMLSelectElement;
+
+      let handled = true;
+
+      switch (event.key) {
+        case " ":
+        case "k":
+        case "K":
+          if (inFormControl) return; // space na dugmetu je već "klik"
+          actions.togglePlay();
+          break;
+        case "ArrowLeft":
+          if (inFormControl) return;
+          actions.skip(-SEEK_STEP_SECONDS);
+          break;
+        case "ArrowRight":
+          if (inFormControl) return;
+          actions.skip(SEEK_STEP_SECONDS);
+          break;
+        case "ArrowUp":
+          if (inFormControl) return;
+          actions.nudgeVolume(VOLUME_STEP);
+          break;
+        case "ArrowDown":
+          if (inFormControl) return;
+          actions.nudgeVolume(-VOLUME_STEP);
+          break;
+        case "f":
+        case "F":
+          actions.toggleFullscreen();
+          break;
+        case "m":
+        case "M":
+          actions.toggleMute();
+          break;
+        default:
+          handled = false;
+      }
+
+      if (handled) {
+        event.preventDefault();
+        revealControls();
+      }
+    },
+    [actions, revealControls],
+  );
 
   return (
     <div
       ref={containerRef as React.RefObject<HTMLDivElement>}
-      className="group border-kf-line relative overflow-hidden rounded-xl border bg-black"
+      tabIndex={0}
+      role="region"
+      aria-label={title ? `Plejer: ${title}` : "Video plejer"}
+      onKeyDown={onKeyDown}
+      onPointerMove={revealControls}
+      onFocus={revealControls}
+      className="border-kf-line relative overflow-hidden rounded-xl border bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
     >
       <video
         ref={videoRef}
@@ -44,7 +144,10 @@ export function HlsPlayer({
           Greška pri reprodukciji: {state.error}
         </div>
       ) : (
-        <div className="absolute inset-x-0 bottom-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div
+          data-visible={controlsVisible}
+          className="absolute inset-x-0 bottom-0 opacity-0 transition-opacity duration-200 data-[visible=true]:opacity-100"
+        >
           <PlayerControls state={state} actions={actions} />
         </div>
       )}
