@@ -63,6 +63,13 @@ const CLIPS: readonly SeedClip[] = [
     durationSeconds: 26,
   },
   {
+    slug: "solar-eclipse",
+    title: "Longest solar eclipse",
+    description:
+      "Snimak pomracenja Sunca — pravi materijal, 1080p na 29.97 fps. Jedini klip duzi od minuta.",
+    durationSeconds: 510,
+  },
+  {
     slug: "clip-01-bars-draft",
     title: "Color bars (nacrt)",
     description: "Neobjavljen zapis — ne sme se pojaviti u javnoj listi ni na detalju.",
