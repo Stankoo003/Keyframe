@@ -20,10 +20,16 @@ export function HlsPlayer({
   src,
   title,
   poster,
+  chapterStarts,
 }: {
   src: string;
   title?: string;
   poster?: string | null;
+  /**
+   * Pocetci poglavlja u sekundama — crtaju se kao crtice na traci. Stizu spolja
+   * iz baze; plejer ih samo prosledjuje kontrolama i ne zna sta znace.
+   */
+  chapterStarts?: readonly number[];
 }) {
   const { videoRef, containerRef, state, actions } = usePlayer(src);
   const [idle, setIdle] = useState(false);
@@ -127,7 +133,7 @@ export function HlsPlayer({
       onKeyDown={onKeyDown}
       onPointerMove={revealControls}
       onFocus={revealControls}
-      className="border-kf-line relative overflow-hidden rounded-xl border bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+      className="border-kf-line rounded-kf-card focus-visible:outline-kf-accent relative overflow-hidden border bg-black focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       <video
         ref={videoRef}
@@ -140,7 +146,7 @@ export function HlsPlayer({
       />
 
       {state.error ? (
-        <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-red-400">
+        <div className="text-kf-danger absolute inset-0 flex items-center justify-center p-4 text-center text-sm">
           Greška pri reprodukciji: {state.error}
         </div>
       ) : (
@@ -148,7 +154,7 @@ export function HlsPlayer({
           data-visible={controlsVisible}
           className="absolute inset-x-0 bottom-0 opacity-0 transition-opacity duration-200 data-[visible=true]:opacity-100"
         >
-          <PlayerControls state={state} actions={actions} />
+          <PlayerControls state={state} actions={actions} chapterStarts={chapterStarts} />
         </div>
       )}
     </div>

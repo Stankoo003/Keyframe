@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ChapterList } from "@/components/chapter-list";
+import { PageShell } from "@/components/page-shell";
 import { HlsPlayer } from "@/components/player/hls-player";
 import { SiteHeader } from "@/components/site-header";
 import { formatTime } from "@/lib/format";
@@ -45,39 +46,47 @@ export default async function VideoDetailPage({ params }: PageProps<"/videos/[sl
 
   if (!video) notFound();
 
+  const chapterLabel = video.chapterCount === 1 ? "poglavlje" : "poglavlja";
+
   return (
     <>
-      <SiteHeader showBack />
+      <SiteHeader showBack meta={`${video.slug} · ${video.chapterCount} ${chapterLabel}`} />
 
-      <main className="grid grid-cols-1 items-start gap-6 px-4 pt-5 pb-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-7.5 lg:px-5 lg:pt-6.5 lg:pb-12">
-        <div className="flex min-w-0 flex-col gap-5">
-          <HlsPlayer src={video.manifestUrl} title={video.title} poster={video.posterUrl} />
+      <PageShell className="pt-7 pb-18">
+        <div className="mx-auto max-w-275">
+          <div className="min-w-0">
+            <HlsPlayer
+              src={video.manifestUrl}
+              title={video.title}
+              poster={video.posterUrl}
+              chapterStarts={video.chapters.map((chapter) => chapter.startSeconds)}
+            />
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="border-kf-blue-line bg-kf-blue-soft text-kf-blue rounded-[5px] border px-2 py-[3px] font-mono text-[10.5px] leading-[1.5] font-medium">
-                HLS
-              </span>
-              <span className="text-kf-mut font-mono text-[11.5px]">
-                {formatTime(video.durationSeconds)} · {video.chapterCount}{" "}
-                {video.chapterCount === 1 ? "poglavlje" : "poglavlja"}
-              </span>
+            <div className="mt-6.5 max-w-[66ch]">
+              <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.03em] md:text-[34px]">
+                {video.title}
+              </h1>
+
+              {/* Mono meta red iz dizajna — samo podaci koje baza zaista ima. */}
+              <div className="kf-micro mt-2.5 flex flex-wrap gap-3.5 tracking-[0.1em]">
+                <span>HLS</span>
+                <span>{formatTime(video.durationSeconds)}</span>
+                <span>
+                  {video.chapterCount} {chapterLabel}
+                </span>
+              </div>
+
+              {video.description && (
+                <p className="text-kf-ink2 mt-4 text-[15px] leading-[1.65] text-pretty">
+                  {video.description}
+                </p>
+              )}
             </div>
 
-            <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.025em]">
-              {video.title}
-            </h1>
-
-            {video.description && (
-              <p className="text-kf-ink2 max-w-[62ch] text-[14.5px] leading-[1.65] text-pretty">
-                {video.description}
-              </p>
-            )}
+            <ChapterList chapters={video.chapters} durationSeconds={video.durationSeconds} />
           </div>
         </div>
-
-        <ChapterList chapters={video.chapters} durationSeconds={video.durationSeconds} />
-      </main>
+      </PageShell>
     </>
   );
 }

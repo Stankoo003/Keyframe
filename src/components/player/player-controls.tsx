@@ -1,5 +1,7 @@
 "use client";
 
+import { formatTime } from "@/lib/format";
+
 import { PLAYBACK_RATES, SEEK_STEP_SECONDS } from "./constants";
 import type { PlayerActions, PlayerState } from "./use-player";
 
@@ -9,33 +11,78 @@ import type { PlayerActions, PlayerState } from "./use-player";
  * kompajlu). Zato se renderuje u testu sa lažnim propsima, bez pravog strima.
  *
  * Redosled u traci je iz zahteva:
- *   play/pauza · nazad · napred · vreme · zvuk · titlovi · kvalitet · brzina · fullscreen
+ *   play/pauza · nazad · napred · zvuk · vreme · titlovi · kvalitet · brzina · fullscreen
  *
  * Titlovi su namerno onemogućeni — dolaze u svom zadatku. Slot stoji da raspored
  * kasnije ne mora da se prepravlja.
+ *
+ * Izgled je iz Claude Design fajla `KeyFrame Player.dc.html`: staza 4px, cyan
+ * napredak, beo okrugli thumb sa oreolom, i pilule sa mono tekstom desno.
  */
-export function PlayerControls({ state, actions }: { state: PlayerState; actions: PlayerActions }) {
+export function PlayerControls({
+  state,
+  actions,
+  chapterStarts = [],
+}: {
+  state: PlayerState;
+  actions: PlayerActions;
+  /** Pocetci poglavlja u sekundama — crtice na traci. Prazno = ne crta se nista. */
+  chapterStarts?: readonly number[];
+}) {
   const { playing, currentTime, duration, bufferedRanges, volume, muted, playbackRate } = state;
 
   const pct = (seconds: number) => (duration > 0 ? (seconds / duration) * 100 : 0);
 
   return (
-    <div className="flex flex-col gap-2 bg-linear-to-t from-black/80 to-black/40 px-3 py-2 text-white">
-      {/* Seek traka: preuzeti opsezi ispod, klizač iznad. */}
-      <div className="relative flex h-4 items-center">
-        <div className="pointer-events-none absolute inset-x-0 h-1 rounded-full bg-white/20" />
+    /*
+     * Gradijent je jaci nego u dizajnu iz istog razloga kao hero na katalogu:
+     * dizajn racuna na taman kadar, a SMPTE test slika je puna zasicenost — sa
+     * blazim gradijentom se traka i vreme gube preko zute i cyan trake.
+     */
+    <div className="flex flex-col gap-2 bg-linear-to-t from-[rgba(8,9,11,.96)] via-[rgba(8,9,11,.62)] to-transparent px-4 pt-10 pb-4 sm:px-5.5">
+      {/*
+       * Seek traka. Sve sto se vidi je iscrtano ispod, a <input> je providan i
+       * lezi preko — tako klik, prevlacenje, tastatura i citac ekrana i dalje
+       * idu kroz nativnu kontrolu, bez rucnog racunanja pozicije misa.
+       */}
+      <div className="relative flex h-5.5 items-center">
+        <div className="pointer-events-none absolute inset-x-0 h-1 overflow-hidden rounded-[3px] bg-white/16">
+          {/* SVI preuzeti opsezi — posle premotavanja se vide praznine među njima. */}
+          {bufferedRanges.map((range) => (
+            <div
+              key={`${range.start}-${range.end}`}
+              className="absolute inset-y-0 bg-white/28"
+              style={{
+                left: `${pct(range.start)}%`,
+                width: `${Math.max(0, pct(range.end) - pct(range.start))}%`,
+              }}
+            />
+          ))}
 
-        {/* SVI preuzeti opsezi — posle premotavanja se vide praznine među njima. */}
-        {bufferedRanges.map((range) => (
           <div
-            key={`${range.start}-${range.end}`}
-            className="pointer-events-none absolute h-1 rounded-full bg-white/40"
-            style={{
-              left: `${pct(range.start)}%`,
-              width: `${Math.max(0, pct(range.end) - pct(range.start))}%`,
-            }}
+            className="bg-kf-accent absolute inset-y-0 left-0"
+            style={{ width: `${pct(currentTime)}%` }}
           />
-        ))}
+        </div>
+
+        {/*
+         * Granice poglavlja — tamne crtice preko trake, kao u dizajnu.
+         *
+         * Iznad `MAX_CHAPTER_TICKS` se ne crtaju: seed pravi poglavlje na svakih
+         * 6s, pa osmominutni snimak daje 84 crtice guste par piksela — traka bi
+         * izgledala isprekidano, a nijedna crtica ne bi vise nista govorila.
+         */}
+        {chapterStarts.length <= MAX_CHAPTER_TICKS &&
+          chapterStarts
+            .filter((start) => start > 0 && start < duration)
+            .map((start) => (
+              <div
+                key={start}
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 h-2.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-[rgba(8,9,11,.85)]"
+                style={{ left: `${pct(start)}%` }}
+              />
+            ))}
 
         <input
           type="range"
@@ -45,58 +92,73 @@ export function PlayerControls({ state, actions }: { state: PlayerState; actions
           step={0.1}
           value={Math.min(currentTime, duration || 0)}
           onChange={(event) => actions.seek(Number(event.target.value))}
-          className="relative z-10 w-full accent-white"
+          className="kf-range relative z-10 w-full"
         />
       </div>
 
-      <div className="flex items-center gap-2 text-sm">
-        <IconButton
-          onClick={actions.togglePlay}
-          label={playing ? "Pauza" : "Pusti"}
-          text={playing ? "❚❚" : "▶"}
-        />
+      {/*
+       * `flex-wrap` je namerno: na 390px se ceo set ne uklapa u jedan red, pa se
+       * desna grupa prelama u drugi umesto da se kontrole preklope. Sakrivanje
+       * nije opcija — zadatak trazi da SVE kontrole budu dostupne.
+       */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <button
+            type="button"
+            onClick={actions.togglePlay}
+            aria-label={playing ? "Pauza" : "Pusti"}
+            title={playing ? "Pauza" : "Pusti"}
+            className="bg-kf-ink text-kf-accent-ink flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full font-mono text-[13px] transition-colors hover:bg-white sm:size-10"
+          >
+            {playing ? "❙❙" : "▶"}
+          </button>
 
-        <IconButton
-          onClick={() => actions.skip(-SEEK_STEP_SECONDS)}
-          label={`Nazad ${SEEK_STEP_SECONDS} sekundi`}
-          text={`⟲${SEEK_STEP_SECONDS}`}
-        />
-        <IconButton
-          onClick={() => actions.skip(SEEK_STEP_SECONDS)}
-          label={`Napred ${SEEK_STEP_SECONDS} sekundi`}
-          text={`${SEEK_STEP_SECONDS}⟳`}
-        />
+          <SkipButton onClick={() => actions.skip(-SEEK_STEP_SECONDS)} delta={-SEEK_STEP_SECONDS} />
+          <SkipButton onClick={() => actions.skip(SEEK_STEP_SECONDS)} delta={SEEK_STEP_SECONDS} />
 
-        <span className="ml-1 text-white/80 tabular-nums">
-          {formatClock(currentTime)} / {formatClock(duration)}
-        </span>
+          {/*
+           * Dugme za utisavanje stoji uvek; klizac se krije ispod `sm`. Na
+           * dodirnim uredjajima se jacina i inace podesava tasterima uredjaja
+           * (iOS ignorise `video.volume`), a klizac bi tu samo trosio sirinu.
+           */}
+          <div className="flex shrink-0 items-center gap-2.5">
+            <button
+              type="button"
+              onClick={actions.toggleMute}
+              aria-label={muted ? "Uključi zvuk" : "Utišaj"}
+              title={muted ? "Uključi zvuk" : "Utišaj"}
+              className="text-kf-ink3 hover:text-kf-accent cursor-pointer font-mono text-[12px] transition-colors"
+            >
+              {muted || volume === 0 ? "🔇" : "🔊"}
+            </button>
+            <input
+              type="range"
+              aria-label="Jačina zvuka"
+              min={0}
+              max={1}
+              step={0.05}
+              value={muted ? 0 : volume}
+              onChange={(event) => actions.setVolume(Number(event.target.value))}
+              className="kf-range kf-range-sm hidden h-1 w-20 rounded-xs bg-white/18 sm:block"
+              style={{
+                backgroundImage: `linear-gradient(to right, var(--kf-ink3) ${(muted ? 0 : volume) * 100}%, transparent ${(muted ? 0 : volume) * 100}%)`,
+              }}
+            />
+          </div>
 
-        <div className="flex items-center gap-1">
-          <IconButton
-            onClick={actions.toggleMute}
-            label={muted ? "Uključi zvuk" : "Utišaj"}
-            text={muted || volume === 0 ? "🔇" : "🔊"}
-          />
-          <input
-            type="range"
-            aria-label="Jačina zvuka"
-            min={0}
-            max={1}
-            step={0.05}
-            value={muted ? 0 : volume}
-            onChange={(event) => actions.setVolume(Number(event.target.value))}
-            className="w-20 accent-white"
-          />
+          <span className="text-kf-ink3 font-mono text-[12px] whitespace-nowrap tabular-nums">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {/* Slot za titlove — popunjava se u zasebnom zadatku. */}
           <button
             type="button"
             disabled
             title="Titlovi — dolaze u sledećem zadatku"
             aria-label="Titlovi (još nedostupno)"
-            className="rounded px-2 py-0.5 text-xs opacity-40"
+            className={`${PILL} opacity-40`}
           >
             CC
           </button>
@@ -107,7 +169,7 @@ export function PlayerControls({ state, actions }: { state: PlayerState; actions
             aria-label="Brzina reprodukcije"
             value={playbackRate}
             onChange={(event) => actions.setPlaybackRate(Number(event.target.value))}
-            className="rounded bg-white/10 px-1 py-0.5 text-xs"
+            className={PILL}
           >
             {PLAYBACK_RATES.map((rate) => (
               <option key={rate} value={rate}>
@@ -116,31 +178,48 @@ export function PlayerControls({ state, actions }: { state: PlayerState; actions
             ))}
           </select>
 
-          <IconButton onClick={actions.toggleFullscreen} label="Ceo ekran" text="⛶" />
+          <button
+            type="button"
+            onClick={actions.toggleFullscreen}
+            aria-label="Ceo ekran"
+            title="Ceo ekran"
+            className={PILL}
+          >
+            ⤢
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function IconButton({
-  onClick,
-  label,
-  text,
-}: {
-  onClick: () => void;
-  label: string;
-  text: string;
-}) {
+/**
+ * Pilula iz dizajna — zajednicki izgled za CC, kvalitet, brzinu i fullscreen.
+ * Jedan string umesto cetiri kopije, da se ne raziđu.
+ */
+/**
+ * Iznad ovoliko poglavlja crtice na traci prestaju da nose informaciju —
+ * gusce su od thumb-a, pa se citaju kao sara, ne kao granice.
+ */
+const MAX_CHAPTER_TICKS = 24;
+
+const PILL =
+  "bg-kf-fill border-kf-line-strong text-kf-ink3 hover:bg-kf-fill-hover cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-[11px] leading-none tracking-[0.06em] transition-colors disabled:cursor-default disabled:hover:bg-kf-fill";
+
+/** Tekstualno dugme za preskakanje; znak i broj se izvode iz `delta`. */
+function SkipButton({ onClick, delta }: { onClick: () => void; delta: number }) {
+  const label = `${delta < 0 ? "−" : "+"}${Math.abs(delta)}s`;
+  const title = delta < 0 ? `Nazad ${Math.abs(delta)} sekundi` : `Napred ${delta} sekundi`;
+
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="rounded px-2 py-0.5 tabular-nums transition-colors hover:bg-white/15"
+      aria-label={title}
+      title={title}
+      className="text-kf-ink3 hover:text-kf-accent shrink-0 cursor-pointer p-1.5 font-mono text-[12px] whitespace-nowrap transition-colors"
     >
-      {text}
+      {label}
     </button>
   );
 }
@@ -163,7 +242,7 @@ function QualitySelect({
       disabled={disabled}
       value={state.currentLevel}
       onChange={(event) => onSelect(Number(event.target.value))}
-      className="rounded bg-white/10 px-1 py-0.5 text-xs disabled:opacity-40"
+      className={`${PILL} disabled:opacity-40`}
     >
       <option value={AUTO}>Auto</option>
       {state.levels.map((level) => (
@@ -173,13 +252,4 @@ function QualitySelect({
       ))}
     </select>
   );
-}
-
-/** Sekunde → "m:ss". */
-function formatClock(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const total = Math.floor(seconds);
-  const mins = Math.floor(total / 60);
-  const secs = total % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
