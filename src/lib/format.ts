@@ -39,12 +39,3 @@ export function chapterDurations(starts: readonly number[], totalSeconds: number
     return Math.max(0, next - start);
   });
 }
-
-/**
- * Pozicija poglavlja na traci napretka, u procentima.
- * Koristi se za oznake na traci u okviru plejera.
- */
-export function percentOf(seconds: number, totalSeconds: number): number {
-  if (totalSeconds <= 0) return 0;
-  return Math.min(100, Math.max(0, (seconds / totalSeconds) * 100));
-}

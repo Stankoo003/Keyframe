@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ChapterList } from "@/components/chapter-list";
-import { PlayerFrame } from "@/components/player-frame";
+import { HlsPlayer } from "@/components/player/hls-player";
 import { SiteHeader } from "@/components/site-header";
 import { formatTime } from "@/lib/format";
 import { getPublishedVideoByIdOrSlug } from "@/server/videos";
@@ -51,12 +51,7 @@ export default async function VideoDetailPage({ params }: PageProps<"/videos/[sl
 
       <main className="grid grid-cols-1 items-start gap-6 px-4 pt-5 pb-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-7.5 lg:px-5 lg:pt-6.5 lg:pb-12">
         <div className="flex min-w-0 flex-col gap-5">
-          <PlayerFrame
-            posterUrl={video.posterUrl}
-            manifestUrl={video.manifestUrl}
-            durationSeconds={video.durationSeconds}
-            chapters={video.chapters}
-          />
+          <HlsPlayer src={video.manifestUrl} title={video.title} poster={video.posterUrl} />
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
