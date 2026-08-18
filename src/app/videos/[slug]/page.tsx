@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { ChapterList } from "@/components/chapter-list";
 import { PageShell } from "@/components/page-shell";
-import { HlsPlayer } from "@/components/player/hls-player";
+import { PlayerStage } from "@/components/player/player-stage";
 import { SiteHeader } from "@/components/site-header";
 import { formatTime } from "@/lib/format";
 import { getPublishedVideoByIdOrSlug } from "@/server/videos";
@@ -55,35 +54,40 @@ export default async function VideoDetailPage({ params }: PageProps<"/videos/[sl
       <PageShell className="pt-7 pb-18">
         <div className="mx-auto max-w-275">
           <div className="min-w-0">
-            <HlsPlayer
+            {/*
+             * Blok naslova ide kao `children` kroz `PlayerStage`: on je klijentska
+             * komponenta jer deli stanje plejera sa poglavljima, ali naslov i opis
+             * ostaju SERVER-renderovani i samo prolaze kroz njega.
+             */}
+            <PlayerStage
+              videoId={video.id}
               src={video.manifestUrl}
               title={video.title}
               poster={video.posterUrl}
-              chapterStarts={video.chapters.map((chapter) => chapter.startSeconds)}
-            />
+              chapters={video.chapters}
+              durationSeconds={video.durationSeconds}
+            >
+              <div className="mt-6.5 max-w-[66ch]">
+                <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.03em] md:text-[34px]">
+                  {video.title}
+                </h1>
 
-            <div className="mt-6.5 max-w-[66ch]">
-              <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.03em] md:text-[34px]">
-                {video.title}
-              </h1>
+                {/* Mono meta red iz dizajna — samo podaci koje baza zaista ima. */}
+                <div className="kf-micro mt-2.5 flex flex-wrap gap-3.5 tracking-[0.1em]">
+                  <span>HLS</span>
+                  <span>{formatTime(video.durationSeconds)}</span>
+                  <span>
+                    {video.chapterCount} {chapterLabel}
+                  </span>
+                </div>
 
-              {/* Mono meta red iz dizajna — samo podaci koje baza zaista ima. */}
-              <div className="kf-micro mt-2.5 flex flex-wrap gap-3.5 tracking-[0.1em]">
-                <span>HLS</span>
-                <span>{formatTime(video.durationSeconds)}</span>
-                <span>
-                  {video.chapterCount} {chapterLabel}
-                </span>
+                {video.description && (
+                  <p className="text-kf-ink2 mt-4 text-[15px] leading-[1.65] text-pretty">
+                    {video.description}
+                  </p>
+                )}
               </div>
-
-              {video.description && (
-                <p className="text-kf-ink2 mt-4 text-[15px] leading-[1.65] text-pretty">
-                  {video.description}
-                </p>
-              )}
-            </div>
-
-            <ChapterList chapters={video.chapters} durationSeconds={video.durationSeconds} />
+            </PlayerStage>
           </div>
         </div>
       </PageShell>
