@@ -17,3 +17,68 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Jedan video sa svojim HLS izlazom.
+///
+/// VAZNO — putanje su RELATIVNE, bez hosta i bez vodece kose crte:
+///   ispravno:  "hls/clip-01-bars/master.m3u8"
+///   pogresno:  "https://pub-xxx.r2.dev/hls/clip-01-bars/master.m3u8"
+///   pogresno:  "/hls/clip-01-bars/master.m3u8"
+///
+/// Base URL se dodaje pri citanju, kroz `mediaUrl()` iz src/lib/media.ts.
+/// Da apsolutni URL stoji u bazi, isti podaci ne bi mogli da se koriste u dev-u
+/// i na produkciji, a promena CDN-a bi trazila UPDATE nad svim redovima.
+model Video {
+  id String @id @default(cuid())
+
+  /// Citljiv identifikator; poklapa se sa imenom foldera u hls/.
+  slug        String  @unique
+  title       String
+  description String?
+
+  /// Trajanje u CELIM SEKUNDAMA. Jedinica je u imenu polja namerno —
+  /// `duration` bi ostavilo nedoumicu da li su sekunde ili milisekunde.
+  durationSeconds Int
+
+  /// Relativna putanja do postera, npr. "hls/clip-01-bars/poster.jpg".
+  posterPath String?
+
+  /// Relativna putanja do master playliste.
+  manifestPath String
+
+  /// Podrazumevano false — video koji upadne greskom nije odmah vidljiv.
+  published Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chapters Chapter[]
+
+  @@index([published])
+}
+
+/// Marker unutar videa — tacka na koju plejer moze da skoci.
+model Chapter {
+  id String @id @default(cuid())
+
+  videoId String
+  /// Brisanjem videa nestaju i njegova poglavlja; bez ovoga ostaju siročići
+  /// koji pokazuju na nepostojeci red.
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  title String
+
+  /// Pocetak poglavlja u CELIM SEKUNDAMA od pocetka videa — ista jedinica
+  /// kao Video.durationSeconds.
+  startSeconds Int
+
+  /// Redosled prikaza, 0-bazno. Ne izvodi se iz startSeconds da bi poglavlja
+  /// mogla da se preurede bez diranja vremena.
+  order Int
+
+  createdAt DateTime @default(now())
+
+  /// Dva poglavlja istog videa ne mogu deliti redni broj — cuva baza, ne kod.
+  @@unique([videoId, order])
+  @@index([videoId])
+}
