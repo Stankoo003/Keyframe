@@ -10,6 +10,8 @@
 
 import { useEffect } from "react";
 
+import { PageShell } from "@/components/page-shell";
+
 export default function BrowseError({
   error,
   reset,
@@ -22,36 +24,36 @@ export default function BrowseError({
   }, [error]);
 
   return (
-    <main className="px-5 pt-6.5 pb-10">
+    <PageShell className="pt-7 pb-20">
       <div
         role="alert"
-        className="border-kf-line bg-kf-bg mx-auto my-10 max-w-[520px] rounded-xl border p-6.5 text-center shadow-[var(--kf-shade)]"
+        className="border-kf-line bg-kf-surface rounded-kf-card mx-auto my-16 max-w-130 border p-7 text-center"
       >
-        <span className="bg-kf-danger-soft text-kf-danger inline-block rounded-md px-2.5 py-1 font-mono text-[10.5px] leading-none font-medium tracking-[0.05em]">
-          CATALOG 503
+        <span className="bg-kf-danger-soft text-kf-danger kf-micro inline-block rounded-md px-2.5 py-1.5 tracking-[0.16em]">
+          Catalog 503
         </span>
 
-        <h2 className="mt-3.5 mb-1.5 text-lg leading-[1.25] font-semibold">
+        <h2 className="mt-4 mb-2 text-lg leading-tight font-semibold">
           Katalog nije mogao da se učita
         </h2>
 
-        <p className="text-kf-mut mx-auto mb-5 max-w-[360px] text-[13px] leading-[1.55]">
+        <p className="text-kf-mut mx-auto mb-5 max-w-85 text-[13px] leading-[1.55]">
           Baza nije odgovorila. Ništa nije izgubljeno — pokušaj ponovo, ili proveri da li je
-          pokrenuta sa <code className="font-mono">npm run db:up</code>.
+          pokrenuta sa <code className="text-kf-ink3 font-mono">npm run db:up</code>.
         </p>
 
         {error.digest && (
-          <p className="text-kf-mut mb-5 font-mono text-[10.5px]">digest: {error.digest}</p>
+          <p className="text-kf-mut2 mb-5 font-mono text-[10.5px]">digest: {error.digest}</p>
         )}
 
         <button
           type="button"
           onClick={reset}
-          className="bg-kf-blue text-kf-blue-ink cursor-pointer rounded-lg px-3.5 py-2.5 text-[12.5px] font-medium transition-opacity hover:opacity-90"
+          className="bg-kf-accent text-kf-accent-ink rounded-kf-btn hover:bg-kf-accent-hover cursor-pointer px-4 py-2.5 text-[13px] font-semibold transition-colors"
         >
           Pokušaj ponovo
         </button>
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -39,3 +39,24 @@ export function chapterDurations(starts: readonly number[], totalSeconds: number
     return Math.max(0, next - start);
   });
 }
+
+/**
+ * Index poglavlja koje traje u trenutku `time`.
+ *
+ * Vraca -1 kad poglavlja nema, ili kad je `time` pre prvog pocetka (moguce ako
+ * prvo poglavlje ne krece od nule).
+ *
+ * Trazi od kraja: prvo poglavlje cij je pocetak <= `time` i jeste tekuce, jer su
+ * pocetci rastuci. Time nema potrebe gledati sledeci element ni trajanje.
+ *
+ * @example
+ * currentChapterIndex([0, 90, 186], 95)  // 1
+ * currentChapterIndex([0, 90, 186], 0)   // 0
+ * currentChapterIndex([], 12)            // -1
+ */
+export function currentChapterIndex(starts: readonly number[], time: number): number {
+  for (let index = starts.length - 1; index >= 0; index -= 1) {
+    if (time >= (starts[index] ?? 0)) return index;
+  }
+  return -1;
+}

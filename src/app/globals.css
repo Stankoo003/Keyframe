@@ -1,98 +1,192 @@
 @import "tailwindcss";
 
 /*
- * Dizajn tokeni iz mockupa "Keyframe streaming UI mockups".
- * Vrednosti su preuzete doslovno iz LIGHT / DARK objekata u dizajnu —
- * ne menjati napamet, nego iz istog izvora.
+ * Dizajn tokeni iz Claude Design projekta "KeyFrame Video Player Design"
+ * (fajlovi `KeyFrame Home.dc.html` i `KeyFrame Player.dc.html`).
+ * Vrednosti su prepisane doslovno iz dizajna — ne menjati napamet.
+ *
+ * Dizajn je iskljucivo taman, pa `prefers-color-scheme` grane vise nema:
+ * `color-scheme: dark` govori browseru da i nativne kontrole (scrollbar,
+ * padajuca lista `<select>`-a, autofill) budu tamne.
  */
 
 :root {
-  --kf-bg: #ffffff;
-  --kf-bg2: #f6f7f9;
-  --kf-bg3: #eef0f4;
-  --kf-line: #e4e7ec;
+  color-scheme: dark;
 
-  --kf-ink: #0e1116;
-  --kf-ink2: #3c434e;
-  --kf-mut: #767e8a;
+  --kf-bg: #08090b; /* stranica */
+  --kf-surface: #0c0e11; /* kartice, aside */
+  --kf-surface2: #101418; /* podloga prugastih povrsina */
 
-  --kf-blue: #2f6fe0;
-  --kf-blue-ink: #ffffff;
-  --kf-blue-soft: #eaf1fd;
-  --kf-blue-line: #c9dcfa;
+  --kf-line: rgba(255, 255, 255, 0.08);
+  --kf-line-soft: rgba(255, 255, 255, 0.06);
+  --kf-line-strong: rgba(255, 255, 255, 0.12);
+  --kf-fill: rgba(255, 255, 255, 0.06);
+  --kf-fill-hover: rgba(255, 255, 255, 0.12);
 
-  --kf-danger: #b4232b;
-  --kf-danger-soft: #fdeceb;
+  --kf-ink: #f2f4f6;
+  --kf-ink2: #a7afb7;
+  --kf-ink3: #dfe4e8;
+  --kf-mut: #6d767e;
+  --kf-mut2: #727b83;
 
-  --kf-stripe: rgba(14, 17, 22, 0.055);
-  --kf-skel: rgba(14, 17, 22, 0.07);
-  --kf-shade: 0 1px 2px rgba(14, 17, 22, 0.06), 0 8px 24px rgba(14, 17, 22, 0.05);
-}
+  /* Akcenat je cyan, ne vise plav — otud `accent` umesto `blue` u imenu. */
+  --kf-accent: #7de3ea;
+  --kf-accent-hover: #8ee9f0;
+  --kf-accent-ink: #0b0d0f;
+  --kf-accent-line: rgba(125, 227, 234, 0.45);
+  --kf-accent-soft: rgba(125, 227, 234, 0.06);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --kf-bg: #0d1015;
-    --kf-bg2: #161a21;
-    --kf-bg3: #05070a;
-    --kf-line: #242a34;
+  --kf-danger: #ff9d9d;
+  --kf-danger-soft: rgba(255, 157, 157, 0.13);
 
-    --kf-ink: #e9ecf1;
-    --kf-ink2: #b3bcc8;
-    --kf-mut: #8b95a3;
-
-    /* --kf-blue ostaje isti u obe teme — akcenat je konstanta. */
-    --kf-blue-ink: #06121f;
-    --kf-blue-soft: #15243a;
-    --kf-blue-line: #2b4a7a;
-
-    --kf-danger: #ff9d9d;
-    --kf-danger-soft: rgba(255, 157, 157, 0.13);
-
-    --kf-stripe: rgba(255, 255, 255, 0.06);
-    --kf-skel: rgba(255, 255, 255, 0.08);
-    --kf-shade: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.42);
-  }
+  --kf-skel: rgba(255, 255, 255, 0.07);
 }
 
 /*
  * `inline` znaci da utility klasa pokazuje na promenljivu, a ne na njenu
- * vrednost — zato tamna tema radi sama, bez `dark:` prefiksa na svakoj klasi.
+ * vrednost — tokeni ostaju jedan izvor istine i za CSS i za Tailwind klase.
  */
 @theme inline {
   --color-kf-bg: var(--kf-bg);
-  --color-kf-bg2: var(--kf-bg2);
-  --color-kf-bg3: var(--kf-bg3);
+  --color-kf-surface: var(--kf-surface);
+  --color-kf-surface2: var(--kf-surface2);
+
   --color-kf-line: var(--kf-line);
+  --color-kf-line-soft: var(--kf-line-soft);
+  --color-kf-line-strong: var(--kf-line-strong);
+  --color-kf-fill: var(--kf-fill);
+  --color-kf-fill-hover: var(--kf-fill-hover);
 
   --color-kf-ink: var(--kf-ink);
   --color-kf-ink2: var(--kf-ink2);
+  --color-kf-ink3: var(--kf-ink3);
   --color-kf-mut: var(--kf-mut);
+  --color-kf-mut2: var(--kf-mut2);
 
-  --color-kf-blue: var(--kf-blue);
-  --color-kf-blue-ink: var(--kf-blue-ink);
-  --color-kf-blue-soft: var(--kf-blue-soft);
-  --color-kf-blue-line: var(--kf-blue-line);
+  --color-kf-accent: var(--kf-accent);
+  --color-kf-accent-hover: var(--kf-accent-hover);
+  --color-kf-accent-ink: var(--kf-accent-ink);
+  --color-kf-accent-line: var(--kf-accent-line);
+  --color-kf-accent-soft: var(--kf-accent-soft);
 
   --color-kf-danger: var(--kf-danger);
   --color-kf-danger-soft: var(--kf-danger-soft);
 
   --color-kf-skel: var(--kf-skel);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Dizajn koristi tri radijusa dosledno — otud skala umesto proizvoljnih px. */
+  --radius-kf-card: 18px;
+  --radius-kf-thumb: 14px;
+  --radius-kf-btn: 12px;
+
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-ibm-plex-mono);
 }
 
 body {
-  background: var(--kf-bg3);
+  background: var(--kf-bg);
   color: var(--kf-ink);
-  font-family: var(--font-geist-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-instrument-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Sarafirana povrsina — placeholder postera i praznih stanja iz mockupa. */
-.kf-stripes {
-  background:
-    repeating-linear-gradient(135deg, var(--kf-stripe) 0 6px, transparent 6px 12px), var(--kf-bg2);
+/*
+ * `@layer components` je bitan, ne kozmetika: Tailwind utility klase zive u
+ * kasnijem sloju, pa ovako `text-kf-danger` ili `text-[10px]` nadjacaju
+ * `.kf-micro`. Bez sloja bi ove nelayerovane klase pobedjivale svaku utility
+ * klasu i tiho gasile prilagodjavanja na mestu upotrebe.
+ */
+@layer components {
+  /* Sarafirana povrsina — placeholder postera i praznih stanja. */
+  .kf-stripes {
+    background: repeating-linear-gradient(115deg, #141a1e 0 12px, #0e1215 12px 24px);
+  }
+
+  /* Krupnija varijanta iste sare, za okvir plejera i hero. */
+  .kf-frame {
+    background: repeating-linear-gradient(115deg, #101418 0 14px, #0c1013 14px 28px);
+  }
+
+  /*
+   * Mono verzalna mikro-labela. Ponavlja se svuda u dizajnu (nadnaslovi sekcija,
+   * meta redovi, oznake) — kao klasa je jedan izvor umesto pet utility klasa
+   * prepisanih na svakom mestu.
+   */
+  .kf-micro {
+    font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--kf-mut);
+  }
+}
+
+/*
+ * Klizaci plejera.
+ *
+ * Staza je PROVIDNA jer se ispod nje crtaju sopstvene trake (napredak, buffered
+ * opsezi, oznake poglavlja). `accent-color` bi dao samo boju, ne i oblik — a
+ * dizajn trazi beo okrugli thumb sa cyan oreolom.
+ *
+ * Sam <input> ostaje jedini interaktivni element, pa premotavanje mišem,
+ * tastaturom i čitačem ekrana i dalje radi kroz nativnu kontrolu.
+ */
+.kf-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.kf-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+
+.kf-range::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+
+.kf-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px; /* centrira thumb na stazu od 4px */
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(125, 227, 234, 0.25);
+}
+
+.kf-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(125, 227, 234, 0.25);
+}
+
+.kf-range:focus-visible {
+  outline: 2px solid var(--kf-accent);
+  outline-offset: 4px;
+}
+
+/* Uzi klizac za jacinu — isti stil, sitniji thumb i bez oreola. */
+.kf-range-sm::-webkit-slider-thumb {
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  box-shadow: none;
+}
+
+.kf-range-sm::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  box-shadow: none;
 }
 
 @keyframes kf-pulse {

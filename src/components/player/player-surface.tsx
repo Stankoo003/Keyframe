@@ -4,28 +4,43 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
 import { PlayerControls } from "./player-controls";
-import { usePlayer } from "./use-player";
+import type { PlayerActions, PlayerState } from "./use-player";
 
 /**
- * Container plejera: drži <video> element, kroz `usePlayer` kreira engine i
- * prosleđuje stanje `PlayerControls`-u. Sam ne dodiruje hls.js — sav HLS je iza
- * engine-a. <video> je bez `controls` atributa: nativne kontrole su isključene,
- * koristimo isključivo naš UI.
+ * Okvir slike: <video>, kontrole, prečice i auto-skrivanje.
  *
- * `src` stize gotov spolja (`video.manifestUrl` iz baze), a ne gradi se ovde iz
- * slug-a: relativna putanja i base URL se spajaju na jednom mestu, u
- * `src/server/videos.ts`, pa plejer ne mora da zna kako je media organizovana.
+ * NE zove `usePlayer` — dobija gotovo stanje i akcije od `PlayerStage`. Razlog:
+ * i lista poglavlja ispod plejera mora da zna `currentTime` i da može da pozove
+ * `seek`, pa hook mora da živi iznad oboje. Da ga ova komponenta zove, postojala
+ * bi dva nezavisna plejera na istoj stranici.
+ *
+ * Sam ne dodiruje hls.js — sav HLS je iza engine-a. <video> je bez `controls`
+ * atributa: nativne kontrole su isključene, koristimo isključivo naš UI.
  */
-export function HlsPlayer({
-  src,
+export function PlayerSurface({
+  player,
   title,
   poster,
+  chapterStarts,
+  currentChapter,
+  overlay,
 }: {
-  src: string;
+  player: {
+    videoRef: React.RefObject<HTMLVideoElement | null>;
+    containerRef: React.RefObject<HTMLElement | null>;
+    state: PlayerState;
+    actions: PlayerActions;
+  };
   title?: string;
   poster?: string | null;
+  /** Pocetci poglavlja u sekundama — crtice na traci. */
+  chapterStarts?: readonly number[];
+  /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
+  currentChapter?: number;
+  /** Npr. ponuda za nastavak gledanja — crta se preko slike, iznad kontrola. */
+  overlay?: React.ReactNode;
 }) {
-  const { videoRef, containerRef, state, actions } = usePlayer(src);
+  const { videoRef, containerRef, state, actions } = player;
   const [idle, setIdle] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -127,7 +142,7 @@ export function HlsPlayer({
       onKeyDown={onKeyDown}
       onPointerMove={revealControls}
       onFocus={revealControls}
-      className="border-kf-line relative overflow-hidden rounded-xl border bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+      className="border-kf-line rounded-kf-card focus-visible:outline-kf-accent relative overflow-hidden border bg-black focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       <video
         ref={videoRef}
@@ -140,16 +155,25 @@ export function HlsPlayer({
       />
 
       {state.error ? (
-        <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-red-400">
+        <div className="text-kf-danger absolute inset-0 flex items-center justify-center p-4 text-center text-sm">
           Greška pri reprodukciji: {state.error}
         </div>
       ) : (
-        <div
-          data-visible={controlsVisible}
-          className="absolute inset-x-0 bottom-0 opacity-0 transition-opacity duration-200 data-[visible=true]:opacity-100"
-        >
-          <PlayerControls state={state} actions={actions} />
-        </div>
+        <>
+          {overlay}
+
+          <div
+            data-visible={controlsVisible}
+            className="absolute inset-x-0 bottom-0 opacity-0 transition-opacity duration-200 data-[visible=true]:opacity-100"
+          >
+            <PlayerControls
+              state={state}
+              actions={actions}
+              chapterStarts={chapterStarts}
+              currentChapter={currentChapter}
+            />
+          </div>
+        </>
       )}
     </div>
   );
