@@ -76,16 +76,26 @@ Default vrednosti odgovaraju servisu `db` iz [docker-compose.yml](docker-compose
 ```
 src/
 ├─ app/             # rute, layout-i, page-ovi (App Router)
-│  └─ api/health/   # Route Handler koji proverava konekciju na bazu
+│  ├─ page.tsx      # browse — mreža snimaka
+│  ├─ videos/[slug]/ # detalj + loading / error / not-found
+│  ├─ api/health/   # Route Handler koji proverava konekciju na bazu
+│  └─ api/videos/   # katalog: lista + detalj
 ├─ components/      # prezentacione React komponente
+│  ├─ site-header.tsx, video-card.tsx
+│  ├─ chapter-list.tsx
+│  └─ player/         # HLS plejer: engine + kontrole
 │  └─ ui/           # generički, reusable elementi
 ├─ server/          # kod koji sme da radi samo na serveru
 │  ├─ db.ts         # Prisma klijent (singleton)
-│  ├─ videos.ts     # čitanje videa + gradnja punih URL-ova
+│  ├─ videos.ts     # čitanje videa → DTO (jedino mesto sa `published: true`)
 │  └─ actions/      # Server Actions
-├─ domain/          # čista domenska logika i tipovi, bez I/O
+├─ domain/          # čisti tipovi i domenska logika, bez I/O
+│  └─ video.ts      # DTO oblici koje API vraća
 ├─ lib/             # deljeni helperi
-│  └─ env.ts        # jedino mesto koje čita process.env
+│  ├─ env.ts        # jedino mesto koje čita process.env
+│  ├─ media.ts      # gradnja media URL-ova
+│  ├─ format.ts     # formatiranje vremena
+│  └─ api/          # zod šeme + oblik HTTP odgovora
 └─ generated/       # Prisma klijent — generisan, nije u gitu
 
 prisma/
@@ -99,6 +109,185 @@ public/media/hls/   # HLS izlaz — generisano, nije u gitu
 ```
 
 **Pravilo:** `app/` i `components/` nikad ne importuju Prismu direktno — pristup bazi ide isključivo kroz `src/server/`. `src/server/db.ts` je označen sa `server-only` pa build pukne ako se to prekrši.
+
+## Stranice
+
+| Ruta             | Sadržaj                                         |
+| ---------------- | ----------------------------------------------- |
+| `/`              | browse — mreža objavljenih snimaka sa posterima |
+| `/videos/[slug]` | detalj — okvir plejera, opis, lista poglavlja   |
+
+Izgled prati mockup **„Keyframe streaming UI mockups"** iz Claude Design-a, povučen kroz `DesignSync`.
+
+### Dizajn tokeni
+
+Sve boje su `--kf-*` promenljive u [src/app/globals.css](src/app/globals.css), preuzete doslovno iz `LIGHT` / `DARK` objekata u mockupu. Izložene su Tailwindu kroz `@theme inline`, pa se koriste kao `bg-kf-bg`, `text-kf-mut`, `border-kf-line`.
+
+Pošto je `inline`, utility klasa pokazuje na promenljivu a ne na vrednost — **tamna tema radi sama**, kroz `prefers-color-scheme`, bez `dark:` prefiksa na svakoj klasi i bez JavaScripta.
+
+### Server / klijent podela
+
+**Tačno dva `use client` fajla**, oba `error.tsx`. To nije stvar ukusa: Next zahteva da error boundary bude klijentska komponenta, jer prima `reset()` i mora da hvata greške pri renderu na klijentu.
+
+Sve ostalo — mreža, kartice, okvir plejera, poglavlja, skeletoni — je statički markup bez stanja, pa ostaje serverski. Podaci se čitaju direktno iz baze u Server Componentu; `/api/videos` postoji za spoljne potrošače i deli isti kod iz [src/server/videos.ts](src/server/videos.ts).
+
+Provera:
+
+```bash
+grep -rl "use client" src   # mora vratiti tačno dva error.tsx fajla
+```
+
+### Stanja
+
+| Fajl                                  | Kad se vidi                           |
+| ------------------------------------- | ------------------------------------- |
+| `src/app/loading.tsx`                 | skeleton mreža dok se katalog učitava |
+| `src/app/error.tsx`                   | baza ne odgovara — `CATALOG 503`      |
+| `src/app/videos/[slug]/loading.tsx`   | spinner u okviru plejera              |
+| `src/app/videos/[slug]/error.tsx`     | `PLAYBACK 4102`                       |
+| `src/app/videos/[slug]/not-found.tsx` | nepoznat ili neobjavljen slug         |
+
+Stranice **ne hvataju greške u `try/catch`** — puštaju ih da propagiraju do `error.tsx`. Otkaz baze mora da bude vidljiv, ne da se pretvori u praznu stranicu.
+
+Prazna stanja su zasebna: katalog bez snimaka i snimak bez poglavlja imaju svoje isprekidane kartice, ne prazan prostor.
+
+Kako ih izazvati:
+
+```bash
+npm run db:down          # → error stanje na /
+# DevTools → Network → Slow 3G   → loading stanja
+```
+
+### Plejer
+
+Na detaljnoj stranici radi **pravi HLS plejer** ([src/components/player/](src/components/player/)) sa sopstvenim kontrolama.
+
+### Engine
+
+Puštanje je iza `PlaybackEngine` interfejsa, pa UI ne zna koji motor vozi:
+
+| Browser                 | Engine                                         |
+| ----------------------- | ---------------------------------------------- |
+| Safari / iOS            | nativni HLS — bez biblioteke, hardverski dekod |
+| Chrome / Firefox / Edge | `hls.js` preko MSE, učitan dinamički           |
+
+Izbor je na jednom mestu, u [create-engine.ts](src/components/player/engine/create-engine.ts). Ručni izbor kvaliteta radi samo uz `hls.js` — nativni HLS ne izlaže listu nivoa, pa je selektor tada onemogućen.
+
+### Kontrole
+
+Play/pauza · nazad 5s · napred 5s · seek traka sa preuzetim opsezima · vreme · zvuk · titlovi (slot) · kvalitet · brzina · fullscreen.
+
+Prečice rade **samo kad je plejer fokusiran** (kontejner ima `tabIndex`): `Space`/`K` play, `←`/`→` ±5s, `↑`/`↓` zvuk, `F` fullscreen, `M` mute. Da slušaju na `document`, otimale bi space i strelice ostatku stranice.
+
+**Interval preskakanja je definisan jednom**, u [constants.ts](src/components/player/constants.ts) — dugmad i strelice uvoze isti `SEEK_STEP_SECONDS`, pa ne mogu da se raziđu.
+
+Titlovi su `<button disabled>` — slot stoji da raspored ne mora da se prepravlja kad stigne njihov zadatak.
+
+### Dve stvari koje nisu očigledne
+
+**Premotavanje staje `0.25s` pre kraja.** Skok na tačno `duration` nema uzorak u baferu, pa `hls.js` digne fatalnu `media error 4` i plejer ostane mrtav. Konstanta je `SEEK_END_EPSILON_SECONDS`.
+
+**Brzo uzastopno preskakanje se sabira.** Osnova je poslednja _tražena_ pozicija, ne `video.currentTime` — dok seek traje, element još prijavljuje staru poziciju, pa bi pet brzih pritisaka sletelo na +5s umesto +25s.
+
+Iz mockupa je izostavljeno ono za šta nemamo podatke: pretraga, filter pilule, godina, „Resume", grupisanje poglavlja po činovima. Lažni UI je gori od izostavljenog.
+
+## API
+
+Dva javna endpointa. Odgovori su **DTO oblici iz [src/domain/video.ts](src/domain/video.ts), ne Prisma vrste** — `manifestPath`, `published` i `updatedAt` nikad ne izlaze iz servera. Zbog toga šema baze sme da se menja bez lomljenja klijenata.
+
+| Endpoint                             | Opis                       |
+| ------------------------------------ | -------------------------- |
+| `GET /api/videos?page=1&pageSize=12` | stranica objavljenih videa |
+| `GET /api/videos/:idOrSlug`          | jedan video sa poglavljima |
+
+Detalj prima **i `slug` i `cuid`** — jedan upit pokriva oba, bez pogađanja formata.
+
+### Lista
+
+Ne nosi poglavlja, samo `chapterCount` — odgovor ne raste sa katalogom.
+
+```jsonc
+{
+  "data": [
+    {
+      "id": "cmssyo5xr0000jyn3y8ynn3w0",
+      "slug": "clip-01-bars",
+      "title": "Color bars",
+      "description": "SMPTE test slika…",
+      "durationSeconds": 24,
+      "manifestUrl": "https://pub-xxx.r2.dev/hls/clip-01-bars/master.m3u8",
+      "posterUrl": "https://pub-xxx.r2.dev/hls/clip-01-bars/poster.jpg",
+      "chapterCount": 4,
+    },
+  ],
+  "meta": { "page": 1, "pageSize": 12, "total": 4, "totalPages": 1, "hasMore": false },
+}
+```
+
+`manifestUrl` i `posterUrl` su **puni URL-ovi**, sastavljeni od relativne putanje iz baze i `NEXT_PUBLIC_MEDIA_BASE_URL` — vidi [Model podataka](#model-podataka).
+
+### Detalj
+
+Isto kao stavka liste, plus `chapters` poređana po `order`:
+
+```jsonc
+{
+  "id": "cmssyo5xr0000jyn3y8ynn3w0",
+  "slug": "clip-01-bars",
+  "chapterCount": 4,
+  "chapters": [{ "id": "cmsszlovt0001…", "title": "Segment 1", "startSeconds": 0, "order": 0 }],
+}
+```
+
+### Greške
+
+Isti oblik na svim rutama, iz [src/lib/api/http.ts](src/lib/api/http.ts):
+
+```jsonc
+// 400 — GET /api/videos?page=0
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Neispravni parametri zahteva.",
+    "details": [{ "path": "page", "message": "page mora biti 1 ili veci" }],
+  },
+}
+```
+
+```jsonc
+// 404 — GET /api/videos/nepostojeci
+{ "error": { "code": "NOT_FOUND", "message": "Video \"nepostojeci\" ne postoji." } }
+```
+
+`details` imenuje **koje polje** ne valja i **zašto** — dovoljno da klijent ispravi zahtev bez čitanja koda.
+
+### Validacija
+
+[src/lib/api/schemas.ts](src/lib/api/schemas.ts), zod. Sve što stigne s mreže je nepoverljivo; ove šeme su granica iza koje kod radi sa proverenim vrednostima.
+
+- `page` ≥ 1, `pageSize` 1–50 (`z.coerce` jer su query parametri uvek stringovi)
+- `pageSize` ima gornju granicu — bez nje `?pageSize=100000` povlači ceo katalog
+- `idOrSlug` propušta samo `[A-Za-z0-9_-]`, pa očigledno smeće pada na 400 pre nego što stigne do baze
+
+### Nacrti se ne vide
+
+`published: true` stoji u [src/server/videos.ts](src/server/videos.ts), **ne** u route handlerima — da se ne može zaboraviti na novom pozivnom mestu.
+
+Neobjavljen video daje **404, ne 403** — po odgovoru se ne razlikuje od nepostojećeg, pa se postojanje nacrta ne otkriva.
+
+Seed sadrži namerni fixture `clip-01-bars-draft` (`published: false`) da se to može proveriti bez ručnog diranja baze.
+
+### Provera
+
+```bash
+npm run db:seed && npm run dev
+
+curl -s localhost:3000/api/videos | jq '.meta'              # total: 4, nacrt izostavljen
+curl -s localhost:3000/api/videos/clip-01-bars | jq '.chapters | length'   # 4
+curl -sI 'localhost:3000/api/videos?page=0'                 # 400
+curl -sI localhost:3000/api/videos/nepostojeci              # 404
+curl -sI localhost:3000/api/videos/clip-01-bars-draft       # 404 — nacrt
+```
 
 ## Model podataka
 
@@ -394,7 +583,7 @@ curl -sI -H "Origin: http://localhost:3000" \
   https://pub-xxxxx.r2.dev/hls/clip-01-bars/360p/seg_000.ts
 ```
 
-> **`curl` nije dovoljan dokaz za CORS** — ne primenjuje same-origin politiku, pa prolazi i kad je bucket pogrešno podešen. Zato početna stranica ima `MediaProbe` komponentu ([src/components/media-probe.tsx](src/components/media-probe.tsx)) koja povlači svaku master playlistu **iz browsera**. Otvori <http://localhost:3000> — četiri zelena reda znače da CORS stvarno radi.
+> **`curl` nije dovoljan dokaz za CORS** — ne primenjuje same-origin politiku, pa prolazi i kad je bucket pogrešno podešen. Pravi dokaz je fetch iz browsera: otvori <http://localhost:3000>, pa DevTools → Network. Posteri se povlače sa CDN-a; kad dođe hls.js plejer, on će povlačiti i manifeste, i to postaje trajna provera.
 
 ## Napomene
 

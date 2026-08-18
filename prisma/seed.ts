@@ -27,6 +27,14 @@ type SeedClip = {
   description: string;
   /** Izmereno sa `ffprobe -show_entries format=duration`. */
   durationSeconds: number;
+  /**
+   * Podrazumevano true. Jedan zapis je namerno false — sluzi kao fixture da se
+   * moze proveriti da javna lista i detalj endpoint zaista preskacu nacrte,
+   * bez rucnog diranja baze.
+   */
+  published?: boolean;
+  /** Folder sa media fajlovima; podrazumevano isti kao slug. */
+  mediaSlug?: string;
 };
 
 const CLIPS: readonly SeedClip[] = [
@@ -53,6 +61,22 @@ const CLIPS: readonly SeedClip[] = [
     title: "Cellular noise",
     description: "Conwayev zivot — visoka entropija, najgori slucaj za kompresiju.",
     durationSeconds: 26,
+  },
+  {
+    slug: "solar-eclipse",
+    title: "Longest solar eclipse",
+    description:
+      "Snimak pomracenja Sunca — pravi materijal, 1080p na 29.97 fps. Jedini klip duzi od minuta.",
+    durationSeconds: 510,
+  },
+  {
+    slug: "clip-01-bars-draft",
+    title: "Color bars (nacrt)",
+    description: "Neobjavljen zapis — ne sme se pojaviti u javnoj listi ni na detalju.",
+    durationSeconds: 24,
+    published: false,
+    // Pokazuje na postojece fajlove; ne pravi se nova media za fixture.
+    mediaSlug: "clip-01-bars",
   },
 ];
 
@@ -89,26 +113,22 @@ async function main() {
   try {
     for (const clip of CLIPS) {
       const chapters = buildChapters(clip.durationSeconds);
+      const mediaSlug = clip.mediaSlug ?? clip.slug;
+      const published = clip.published ?? true;
+
+      const fields = {
+        title: clip.title,
+        description: clip.description,
+        durationSeconds: clip.durationSeconds,
+        manifestPath: `hls/${mediaSlug}/master.m3u8`,
+        posterPath: `hls/${mediaSlug}/poster.jpg`,
+        published,
+      };
 
       const video = await prisma.video.upsert({
         where: { slug: clip.slug },
-        create: {
-          slug: clip.slug,
-          title: clip.title,
-          description: clip.description,
-          durationSeconds: clip.durationSeconds,
-          manifestPath: `hls/${clip.slug}/master.m3u8`,
-          posterPath: `hls/${clip.slug}/poster.jpg`,
-          published: true,
-        },
-        update: {
-          title: clip.title,
-          description: clip.description,
-          durationSeconds: clip.durationSeconds,
-          manifestPath: `hls/${clip.slug}/master.m3u8`,
-          posterPath: `hls/${clip.slug}/poster.jpg`,
-          published: true,
-        },
+        create: { slug: clip.slug, ...fields },
+        update: fields,
       });
 
       // Obrisi pa upisi — jednostavnije i pouzdanije nego uparivanje po redu,
@@ -119,13 +139,15 @@ async function main() {
       });
 
       console.log(
-        `  ${clip.slug.padEnd(18)} ${clip.durationSeconds}s, ${chapters.length} poglavlja`,
+        `  ${clip.slug.padEnd(20)} ${clip.durationSeconds}s, ${chapters.length} poglavlja` +
+          (published ? "" : "  [nacrt]"),
       );
     }
 
     const videos = await prisma.video.count();
+    const publishedCount = await prisma.video.count({ where: { published: true } });
     const chapters = await prisma.chapter.count();
-    console.log(`\ngotovo: ${videos} videa, ${chapters} poglavlja`);
+    console.log(`\ngotovo: ${videos} videa (${publishedCount} objavljeno), ${chapters} poglavlja`);
   } finally {
     await prisma.$disconnect();
   }
