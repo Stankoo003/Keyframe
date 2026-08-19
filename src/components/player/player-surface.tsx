@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
+import type { PlaybackEngine } from "./engine/types";
+import { PlayerContextMenu } from "./player-context-menu";
 import { PlayerControls } from "./player-controls";
+import { StatsOverlay } from "./stats-overlay";
 import type { PlayerActions, PlayerState } from "./use-player";
+import { usePlayerStats } from "./use-player-stats";
 
 /**
  * Okvir slike: <video>, kontrole, prečice i auto-skrivanje.
@@ -30,6 +34,7 @@ export function PlayerSurface({
     containerRef: React.RefObject<HTMLElement | null>;
     state: PlayerState;
     actions: PlayerActions;
+    engineRef: React.RefObject<PlaybackEngine | null>;
   };
   title?: string;
   poster?: string | null;
@@ -40,9 +45,21 @@ export function PlayerSurface({
   /** Npr. ponuda za nastavak gledanja — crta se preko slike, iznad kontrola. */
   overlay?: React.ReactNode;
 }) {
-  const { videoRef, containerRef, state, actions } = player;
+  const { videoRef, containerRef, state, actions, engineRef } = player;
   const [idle, setIdle] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * "Stats for nerds" — off by default (obican `useState`, ne localStorage):
+   * zahtev je da nikad ne bude prikazan dok se izricito ne zatrazi, ne da
+   * prezivi refresh stranice.
+   */
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const statsSnapshot = usePlayerStats(videoRef, engineRef, statsOpen);
+
+  const closeStats = useCallback(() => setStatsOpen(false), []);
+  const toggleStats = useCallback(() => setStatsOpen((open) => !open), []);
 
   /**
    * Vidljivost se IZVODI, ne drži u zasebnom stanju: na pauzi su kontrole uvek
@@ -121,6 +138,11 @@ export function PlayerSurface({
         case "M":
           actions.toggleMute();
           break;
+        case "d":
+        case "D":
+          // Mnemonik "debug/dijagnostika" — nije zauzeto drugom precicom.
+          toggleStats();
+          break;
         default:
           handled = false;
       }
@@ -130,8 +152,14 @@ export function PlayerSurface({
         revealControls();
       }
     },
-    [actions, revealControls],
+    [actions, revealControls, toggleStats],
   );
+
+  const onContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setContextMenu({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
+  }, []);
 
   return (
     <div
@@ -142,6 +170,7 @@ export function PlayerSurface({
       onKeyDown={onKeyDown}
       onPointerMove={revealControls}
       onFocus={revealControls}
+      onContextMenu={onContextMenu}
       className="border-kf-line rounded-kf-card focus-visible:outline-kf-accent relative overflow-hidden border bg-black focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       <video
@@ -161,6 +190,19 @@ export function PlayerSurface({
       ) : (
         <>
           {overlay}
+
+          {statsOpen && <StatsOverlay snapshot={statsSnapshot} onClose={closeStats} />}
+
+          {contextMenu && (
+            <PlayerContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              statsEnabled={statsOpen}
+              onToggleStats={toggleStats}
+              onClose={() => setContextMenu(null)}
+              returnFocusTo={containerRef}
+            />
+          )}
 
           <div
             data-visible={controlsVisible}

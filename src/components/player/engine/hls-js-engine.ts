@@ -43,8 +43,31 @@ export async function createHlsJsEngine(
     emit({ type: "levels", levels });
   });
 
-  hls.on(HlsCtor.Events.LEVEL_SWITCHED, (_e, data) => {
-    emit({ type: "levelswitched", level: hls.autoLevelEnabled ? AUTO_LEVEL : data.level });
+  /**
+   * `LEVEL_SWITCHING`, ne `LEVEL_SWITCHED`: potonji prati STVARNO ODIGRAN
+   * fragment (vidi `checkFragmentChanged` u hls.js), pa kod velikog vec-baferovanog
+   * sadrzaja moze da kasni desetinama sekundi za rucnim izborom — <select> bi
+   * tiho "otkazao" izbor sve dok playback stvarno ne stigne do novog nivoa.
+   * `LEVEL_SWITCHING` prati ODLUKU (rucnu ili ABR), sto je i UI-u i Stats
+   * overlay-u potrebno da odmah odrazi izbor.
+   */
+  hls.on(HlsCtor.Events.LEVEL_SWITCHING, (_e, data) => {
+    emit({
+      type: "levelswitched",
+      level: hls.autoLevelEnabled ? AUTO_LEVEL : data.level,
+      auto: hls.autoLevelEnabled,
+    });
+  });
+
+  hls.on(HlsCtor.Events.FRAG_LOADED, (_e, data) => {
+    const { loading } = data.frag.stats;
+    emit({
+      type: "fragloaded",
+      level: data.frag.level,
+      loadTimeMs: loading.end - loading.start,
+      sizeBytes: data.frag.stats.loaded,
+      durationS: data.frag.duration,
+    });
   });
 
   hls.on(HlsCtor.Events.ERROR, (_e, data) => {
@@ -64,6 +87,7 @@ export async function createHlsJsEngine(
       hls.currentLevel = index;
     },
     supportsLevelSelection: () => true,
+    getBandwidthEstimate: () => hls.bandwidthEstimate ?? null,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

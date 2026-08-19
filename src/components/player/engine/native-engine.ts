@@ -27,6 +27,8 @@ export function createNativeEngine(video: HTMLVideoElement, src: string): Playba
       // Native HLS ne dozvoljava ručni izbor nivoa — no-op.
     },
     supportsLevelSelection: () => false,
+    // Safari ne izlaze estimator propusnog opsega van hls.js.
+    getBandwidthEstimate: () => null,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

@@ -27,7 +27,10 @@ export const AUTO_LEVEL = -1;
 /** High-level eventi koje engine emituje ka hook-u. */
 export type EngineEvent =
   | { type: "levels"; levels: QualityLevel[] }
-  | { type: "levelswitched"; level: number }
+  /** `auto` je trigger za Stats overlay: true = ABR odluka, false = rucni izbor. */
+  | { type: "levelswitched"; level: number; auto: boolean }
+  /** Jedan ucitan segment — koristi Stats overlay za fetch-time log. */
+  | { type: "fragloaded"; level: number; loadTimeMs: number; sizeBytes: number; durationS: number }
   | { type: "error"; fatal: boolean; message: string };
 
 export type EngineListener = (event: EngineEvent) => void;
@@ -41,6 +44,8 @@ export interface PlaybackEngine {
   setLevel(index: number): void;
   /** Da li engine uopšte izlaže ručni izbor nivoa (Safari native ne izlaže). */
   supportsLevelSelection(): boolean;
+  /** Procena propusnog opsega u b/s; `null` kad engine nema tu informaciju (native). */
+  getBandwidthEstimate(): number | null;
   /** Pretplata na evente; vraća funkciju za odjavu. */
   subscribe(listener: EngineListener): () => void;
   /** Oslobodi resurse i odveži se od <video> elementa. */

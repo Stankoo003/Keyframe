@@ -158,6 +158,8 @@ export function usePlayer(src: string) {
           if (event.type === "levels") patch({ levels: event.levels });
           else if (event.type === "levelswitched") patch({ currentLevel: event.level });
           else if (event.type === "error") patch({ error: event.message });
+          // "fragloaded" ne dodiruje PlayerState — Stats overlay se pretplacuje
+          // direktno na engine, vidi use-player-stats.ts.
         });
       } catch (err: unknown) {
         if (!disposed) patch({ error: err instanceof Error ? err.message : String(err) });
@@ -316,5 +318,5 @@ export function usePlayer(src: string) {
     }, []),
   };
 
-  return { videoRef, containerRef, state, actions };
+  return { videoRef, containerRef, state, actions, engineRef };
 }
