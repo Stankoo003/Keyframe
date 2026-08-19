@@ -17,6 +17,17 @@ export type ChapterDto = {
   order: number;
 };
 
+export type SubtitleDto = {
+  id: string;
+  /** BCP-47 oznaka jezika — ide pravo u <track srclang>. */
+  lang: string;
+  /** Ime na jeziku titla, za nativni meni ("English"). */
+  label: string;
+  /** Pun URL do .vtt fajla — relativna putanja iz baze + base URL iz env configa. */
+  url: string;
+  isDefault: boolean;
+};
+
 /** Video u listi — bez poglavlja, da odgovor ne raste sa katalogom. */
 export type VideoListItem = {
   id: string;
@@ -31,9 +42,11 @@ export type VideoListItem = {
   chapterCount: number;
 };
 
-/** Video sa punim poglavljima — vraca ga samo detalj endpoint. */
+/** Video sa punim poglavljima i titlovima — vraca ga samo detalj endpoint. */
 export type VideoDetail = VideoListItem & {
   chapters: ChapterDto[];
+  /** Prazno kad snimak nema titlove — plejer po tome onemogucuje CC kontrolu. */
+  subtitles: SubtitleDto[];
 };
 
 export type PageMeta = {

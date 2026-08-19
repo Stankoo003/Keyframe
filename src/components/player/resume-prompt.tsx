@@ -24,7 +24,7 @@ export function ResumePrompt({
     <div
       role="dialog"
       aria-label="Nastavak gledanja"
-      className="border-kf-line-strong bg-kf-bg/85 absolute inset-x-3 bottom-20 z-20 flex flex-wrap items-center justify-between gap-3 rounded-kf-btn border px-4 py-3 backdrop-blur-xl sm:inset-x-5"
+      className="border-kf-line-strong bg-kf-bg/85 rounded-kf-btn absolute inset-x-3 bottom-20 z-20 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 backdrop-blur-xl sm:inset-x-5"
     >
       <p className="text-kf-ink2 text-[13px]">
         Prekinuo si na <span className="text-kf-ink font-mono">{formatTime(seconds)}</span>.

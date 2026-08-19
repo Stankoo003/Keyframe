@@ -5,9 +5,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SEEK_END_EPSILON_SECONDS } from "./constants";
 import { createEngine } from "./engine/create-engine";
 import { AUTO_LEVEL, type PlaybackEngine, type QualityLevel } from "./engine/types";
+import { readTextTracks } from "./text-tracks";
 
 /** Jedan neprekidan opseg koji je vec preuzet. */
 export type BufferedRange = { start: number; end: number };
+
+/** Jedna tekstualna staza, onako kako je kontrole vide. */
+export type TextTrackInfo = {
+  /** Indeks u `state.textTracks`, NE u `video.textTracks` — vidi `readTextTracks`. */
+  index: number;
+  lang: string;
+  label: string;
+};
 
 /** Sve što UI kontrolama treba da renderuju stanje plejera. */
 export type PlayerState = {
@@ -25,6 +34,10 @@ export type PlayerState = {
   levels: QualityLevel[];
   currentLevel: number;
   supportsLevelSelection: boolean;
+  /** Prazno kad snimak nema titlove — kontrola se po tome onemogucuje. */
+  textTracks: TextTrackInfo[];
+  /** Indeks ukljucene staze, ili -1 kad su titlovi ugaseni. */
+  activeTextTrack: number;
   error: string | null;
 };
 
@@ -40,6 +53,10 @@ export type PlayerActions = {
   toggleMute: () => void;
   setPlaybackRate: (rate: number) => void;
   selectLevel: (index: number) => void;
+  /** `-1` gasi titlove. Indeks van opsega se ignorise. */
+  setTextTrack: (index: number) => void;
+  /** Pali prvu stazu ili gasi tekucu. Bez staza ne radi nista. */
+  toggleCaptions: () => void;
   toggleFullscreen: () => void;
 };
 
@@ -57,6 +74,8 @@ const INITIAL: PlayerState = {
   levels: [],
   currentLevel: AUTO_LEVEL,
   supportsLevelSelection: false,
+  textTracks: [],
+  activeTextTrack: -1,
   error: null,
 };
 
@@ -223,6 +242,76 @@ export function usePlayer(src: string) {
     };
   }, [patch]);
 
+  /**
+   * Otkrivanje tekstualnih staza.
+   *
+   * Ne radi se jednom, nego se ponavlja na `loadedmetadata` i `emptied`, jer
+   * `native-engine.destroy()` zove `video.load()` — a `load()` po specifikaciji
+   * vraca <track> modove na "disabled". U Strict Mode-u destroy prvog engine-a
+   * stize POSLE attach-a drugog, pa bi jednokratno postavljanje bilo tiho
+   * pobrisano. Ovako se stanje samo izleci.
+   */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const sync = () => {
+      const found = readTextTracks(video);
+
+      found.forEach(({ track }) => {
+        // UVEK "hidden", i kad su titlovi upaljeni. U tom modu se cue-ovi
+        // parsiraju i `activeCues` se puni, ali UA ne crta nista — iscrtavanje
+        // je nase, vidi caption-overlay.tsx. Da ijedna staza ostane "showing",
+        // Safari bi crtao i svoje, pa bi se titlovi videli DVAPUT.
+        //
+        // Ovo je jedino mesto u kodu koje pise mod. Bezuslovno, da ga ni jedan
+        // drugi sloj ne vrati na "showing"; upis istog moda je no-op.
+        track.mode = "hidden";
+      });
+
+      patch({
+        textTracks: found.map(({ track }, index) => ({
+          index,
+          lang: track.language,
+          label: track.label,
+        })),
+      });
+    };
+
+    sync();
+
+    const elements = readTextTracks(video).map(({ el }) => el);
+    const onTrackLoad = () => sync();
+    const onTrackError = (event: Event) => {
+      // Titl koji se ne ucita mora da nestane iz stanja — inace ostaje ukljucena
+      // kontrola koja ne radi nista, tacno ono sto ovaj zadatak treba da spreci.
+      const el = event.currentTarget as HTMLTrackElement;
+      console.warn(`Titl se nije ucitao: ${el.src}`);
+      patch({
+        textTracks: readTextTracks(video)
+          .filter(({ el: candidate }) => candidate !== el)
+          .map(({ track }, index) => ({ index, lang: track.language, label: track.label })),
+        activeTextTrack: -1,
+      });
+    };
+
+    elements.forEach((el) => {
+      el.addEventListener("load", onTrackLoad);
+      el.addEventListener("error", onTrackError);
+    });
+    video.addEventListener("loadedmetadata", sync);
+    video.addEventListener("emptied", sync);
+
+    return () => {
+      elements.forEach((el) => {
+        el.removeEventListener("load", onTrackLoad);
+        el.removeEventListener("error", onTrackError);
+      });
+      video.removeEventListener("loadedmetadata", sync);
+      video.removeEventListener("emptied", sync);
+    };
+  }, [src, patch]);
+
   // Fullscreen stanje prati document, jer korisnik može izaći Esc-om.
   useEffect(() => {
     const onFsChange = () => patch({ fullscreen: document.fullscreenElement != null });
@@ -308,9 +397,31 @@ export function usePlayer(src: string) {
     selectLevel: useCallback((index: number) => {
       engineRef.current?.setLevel(index);
     }, []),
+
+    setTextTrack: useCallback((index: number) => {
+      setState((prev) => {
+        if (index >= prev.textTracks.length) return prev;
+        return { ...prev, activeTextTrack: index < 0 ? -1 : index };
+      });
+    }, []),
+
+    /**
+     * Gard stoji OVDE, a ne na pozivnom mestu, da bi dugme i precica na
+     * tastaturi delili jedno pravilo — bez staza ovo je no-op.
+     */
+    toggleCaptions: useCallback(() => {
+      setState((prev) => {
+        if (prev.textTracks.length === 0) return prev;
+        return { ...prev, activeTextTrack: prev.activeTextTrack >= 0 ? -1 : 0 };
+      });
+    }, []),
     toggleFullscreen: useCallback(() => {
       const container = containerRef.current;
       if (!container) return;
+      // Na iPhone-u `Element.requestFullscreen` uopste ne postoji — samo video
+      // ume u nativni fullscreen. Bez ovog garda poziv baca.
+      if (typeof container.requestFullscreen !== "function") return;
+
       if (document.fullscreenElement) void document.exitFullscreen();
       else void container.requestFullscreen();
     }, []),
