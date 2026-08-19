@@ -1,0 +1,15 @@
+1
+00:00:01,000 --> 00:00:05,500
+Mandelbrotov skup u punom kadru.
+
+2
+00:00:06,000 --> 00:00:11,500
+Ulazimo u rub — granica se nikad ne izgladi.
+
+3
+00:00:12,000 --> 00:00:17,500
+Dubinski zum: isti oblik se ponavlja u sitnijoj razmeri.
+
+4
+00:00:18,000 --> 00:00:19,800
+Najsitniji detalj koji enkoder jos vidi.

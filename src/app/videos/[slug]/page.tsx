@@ -66,6 +66,7 @@ export default async function VideoDetailPage({ params }: PageProps<"/videos/[sl
               poster={video.posterUrl}
               chapters={video.chapters}
               durationSeconds={video.durationSeconds}
+              subtitles={video.subtitles}
             >
               <div className="mt-6.5 max-w-[66ch]">
                 <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.03em] md:text-[34px]">

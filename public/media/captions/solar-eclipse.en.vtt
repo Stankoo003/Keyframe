@@ -1,0 +1,1123 @@
+WEBVTT
+
+NOTE
+Transkript generisan sa whisper.cpp (model small.en), pa rucno pregledan:
+spojeni fragmenti kraci od 0.4 s i ispravljena vlastita imena
+(Léna, Turcat, Aérospatiale, zodiacal light).
+Vidi scripts/make-captions.sh.
+
+1
+00:00:00.000 --> 00:00:03.350
+This is Concorde, flying over Africa on a
+
+2
+00:00:03.350 --> 00:00:04.920
+flight like no other.
+
+3
+00:00:04.920 --> 00:00:07.660
+The sun, which was directly above Concorde,
+
+4
+00:00:07.660 --> 00:00:10.140
+just went completely dark in what was to become
+
+5
+00:00:10.140 --> 00:00:12.300
+the most unique solar eclipse ever
+
+6
+00:00:12.300 --> 00:00:13.240
+witnessed.
+
+7
+00:00:13.240 --> 00:00:15.400
+Total solar eclipses are rare and
+
+8
+00:00:15.400 --> 00:00:18.270
+typically only last for a few minutes,
+
+9
+00:00:18.270 --> 00:00:20.460
+but in 1973 scientists
+
+10
+00:00:20.460 --> 00:00:23.080
+were able to cheat and experience 74
+
+11
+00:00:23.080 --> 00:00:25.660
+minutes in the moon's shadow by flying in
+
+12
+00:00:25.660 --> 00:00:26.160
+the only
+
+13
+00:00:26.160 --> 00:00:29.360
+vehicle capable of chasing an eclipse.
+
+14
+00:00:29.360 --> 00:00:31.230
+This was an incredible mission that
+
+15
+00:00:31.230 --> 00:00:33.160
+required pinpoint accuracy and timing to
+
+16
+00:00:33.160 --> 00:00:33.720
+intercept
+
+17
+00:00:33.720 --> 00:00:36.250
+the moon's shadow as it traveled at over
+
+18
+00:00:36.250 --> 00:00:39.720
+2,000 km/h across the Earth's surface.
+
+19
+00:00:39.720 --> 00:00:41.670
+We modeled the entire thing to show you
+
+20
+00:00:41.670 --> 00:00:43.810
+what this incredible mission looked like
+
+21
+00:00:43.810 --> 00:00:44.280
+and how
+
+22
+00:00:44.280 --> 00:00:46.980
+a small team of scientists managed to
+
+23
+00:00:46.980 --> 00:00:48.080
+pull it off.
+
+24
+00:00:48.080 --> 00:00:51.170
+In 1972, French astrophysicist Pierre Léna
+
+25
+00:00:51.170 --> 00:00:53.820
+began preparing for the upcoming eclipse.
+
+26
+00:00:53.820 --> 00:00:55.810
+This was to be one of the longest in
+
+27
+00:00:55.810 --> 00:00:58.040
+history, with a duration of over 7
+
+28
+00:00:58.040 --> 00:00:58.860
+minutes.
+
+29
+00:00:58.860 --> 00:01:00.930
+An eclipse this long wouldn't happen for
+
+30
+00:01:00.930 --> 00:01:03.200
+another 200 years, so he was eager to
+
+31
+00:01:03.200 --> 00:01:03.940
+make the most
+
+32
+00:01:03.940 --> 00:01:04.940
+of it.
+
+33
+00:01:04.940 --> 00:01:06.820
+He was particularly interested in
+
+34
+00:01:06.820 --> 00:01:09.010
+observing the sun's corona, the area of
+
+35
+00:01:09.010 --> 00:01:09.800
+hot gas where
+
+36
+00:01:09.800 --> 00:01:12.890
+the temperatures shoot from 5,000 degrees
+
+37
+00:01:12.890 --> 00:01:14.640
+to over 1 million degrees.
+
+38
+00:01:14.640 --> 00:01:16.620
+The corona is usually invisible from
+
+39
+00:01:16.620 --> 00:01:18.710
+Earth, but during an eclipse, the sun
+
+40
+00:01:18.710 --> 00:01:19.440
+disappears
+
+41
+00:01:19.440 --> 00:01:21.320
+and the corona lights up.
+
+42
+00:01:21.320 --> 00:01:23.520
+But even during an eclipse, studying the
+
+43
+00:01:23.520 --> 00:01:25.670
+corona is difficult since clouds and the
+
+44
+00:01:25.670 --> 00:01:26.200
+Earth's
+
+45
+00:01:26.200 --> 00:01:28.300
+atmosphere get in the way.
+
+46
+00:01:28.300 --> 00:01:31.000
+And so for the 1973 eclipse, Pierre
+
+47
+00:01:31.000 --> 00:01:33.060
+wanted to step things up a notch.
+
+48
+00:01:33.060 --> 00:01:35.330
+And so, Pierre asked legendary Concorde
+
+49
+00:01:35.330 --> 00:01:37.500
+test pilot André Turcat if he could use
+
+50
+00:01:37.500 --> 00:01:38.120
+Concorde
+
+51
+00:01:38.120 --> 00:01:40.030
+to chase down the eclipse and fill the
+
+52
+00:01:40.030 --> 00:01:41.840
+plane with science equipment.
+
+53
+00:01:41.840 --> 00:01:44.270
+Aérospatiale, the French side of Concorde,
+
+54
+00:01:44.270 --> 00:01:46.580
+were excited about the idea and let him use
+
+55
+00:01:46.580 --> 00:01:49.420
+prototype 001 for the flight, with Turcat
+
+56
+00:01:49.420 --> 00:01:50.920
+piloting the aircraft.
+
+57
+00:01:50.920 --> 00:01:52.950
+Although there were faster planes around,
+
+58
+00:01:52.950 --> 00:01:54.880
+none of them could match the endurance or
+
+59
+00:01:54.880 --> 00:01:56.800
+cabin space of Concorde.
+
+60
+00:01:56.800 --> 00:01:58.630
+Pierre and Turcat got to work coming up
+
+61
+00:01:58.630 --> 00:02:00.680
+with a flight plan that would maximize their
+
+62
+00:02:00.680 --> 00:02:02.920
+time in the moon's shadow.
+
+63
+00:02:02.920 --> 00:02:04.790
+Before we look at how the flight worked,
+
+64
+00:02:04.790 --> 00:02:06.200
+we need to understand the basic
+
+65
+00:02:06.200 --> 00:02:06.940
+principles of
+
+66
+00:02:06.940 --> 00:02:08.540
+solar eclipses.
+
+67
+00:02:08.540 --> 00:02:10.570
+An eclipse happens when the moon passes
+
+68
+00:02:10.570 --> 00:02:12.920
+in front of our view of the sun, blocking out
+
+69
+00:02:12.920 --> 00:02:15.540
+its light and casting a large shadow over
+
+70
+00:02:15.540 --> 00:02:16.200
+Earth.
+
+71
+00:02:16.200 --> 00:02:18.070
+Most parts of the shadow will only
+
+72
+00:02:18.070 --> 00:02:20.040
+experience a partial eclipse, but at the
+
+73
+00:02:20.040 --> 00:02:20.760
+very center
+
+74
+00:02:20.760 --> 00:02:23.000
+of the shadow is a much smaller area
+
+75
+00:02:23.000 --> 00:02:25.280
+where the sun is fully blocked.
+
+76
+00:02:25.280 --> 00:02:27.900
+This is where the total eclipse happens.
+
+77
+00:02:27.900 --> 00:02:29.990
+As the moon moves, the shadow also moves
+
+78
+00:02:29.990 --> 00:02:32.280
+across the Earth's surface, meaning that
+
+79
+00:02:32.280 --> 00:02:32.800
+any point
+
+80
+00:02:32.800 --> 00:02:35.380
+along the path will only experience a few
+
+81
+00:02:35.380 --> 00:02:37.580
+minutes of complete darkness.
+
+82
+00:02:37.580 --> 00:02:40.670
+For the 1973 eclipse, the shadow was set
+
+83
+00:02:40.670 --> 00:02:43.320
+to begin at the edge of South America and work
+
+84
+00:02:43.320 --> 00:02:45.280
+its way over to Africa, where the
+
+85
+00:02:45.280 --> 00:02:47.460
+totality would be at its fullest.
+
+86
+00:02:47.460 --> 00:02:49.600
+It would be moving over the ground at
+
+87
+00:02:49.600 --> 00:02:52.750
+around 2,200 km/h, slightly faster than
+
+88
+00:02:52.750 --> 00:02:53.600
+Concorde's
+
+89
+00:02:53.600 --> 00:02:54.600
+top speed.
+
+90
+00:02:54.600 --> 00:02:56.420
+Pierre and his team had to figure out how
+
+91
+00:02:56.420 --> 00:02:58.180
+to stay in the moon's shadow for as long
+
+92
+00:02:58.180 --> 00:03:01.120
+as possible before it eventually overtook
+
+93
+00:03:01.120 --> 00:03:01.740
+them.
+
+94
+00:03:01.740 --> 00:03:03.950
+But during the planning stages, word got
+
+95
+00:03:03.950 --> 00:03:05.910
+out about the mission thanks to a data
+
+96
+00:03:05.910 --> 00:03:06.600
+breach,
+
+97
+00:03:06.600 --> 00:03:08.810
+something that wouldn't have happened if
+
+98
+00:03:08.810 --> 00:03:10.160
+they'd used Incogni.
+
+99
+00:03:10.160 --> 00:03:12.040
+Just kidding, that didn't happen.
+
+100
+00:03:12.040 --> 00:03:14.200
+But did you know that data brokers buy
+
+101
+00:03:14.200 --> 00:03:16.100
+and sell our own personal data to
+
+102
+00:03:16.100 --> 00:03:17.380
+marketing agencies
+
+103
+00:03:17.380 --> 00:03:19.460
+who add you to a list, usually so they
+
+104
+00:03:19.460 --> 00:03:21.480
+can send you pointless emails?
+
+105
+00:03:21.480 --> 00:03:23.770
+The problem is that the information on
+
+106
+00:03:23.770 --> 00:03:25.910
+their databases can quite easily be
+
+107
+00:03:25.910 --> 00:03:27.020
+leaked or stolen
+
+108
+00:03:27.020 --> 00:03:28.680
+by criminals.
+
+109
+00:03:28.680 --> 00:03:30.550
+Incogni reaches out to these marketing
+
+110
+00:03:30.550 --> 00:03:32.470
+agencies on your behalf and gets them to
+
+111
+00:03:32.470 --> 00:03:32.980
+delete any
+
+112
+00:03:32.980 --> 00:03:35.120
+data they have about you.
+
+113
+00:03:35.120 --> 00:03:37.840
+They contact each company individually,
+
+114
+00:03:37.840 --> 00:03:39.300
+so you don't have to.
+
+115
+00:03:39.300 --> 00:03:41.390
+After a few months of Incogni, my spam
+
+116
+00:03:41.390 --> 00:03:44.040
+emails have almost completely dropped off.
+
+117
+00:03:44.040 --> 00:03:46.900
+To protect your personal information and
+
+118
+00:03:46.900 --> 00:03:51.400
+get rid of spam in your life, visit Incogni.com/primalspace.
+
+119
+00:03:51.480 --> 00:03:54.940
+And use the code PRIMALSPACE to get 60%
+
+120
+00:03:54.940 --> 00:03:55.600
+off.
+
+121
+00:03:55.600 --> 00:03:57.580
+In order to stay in the moon's shadow for
+
+122
+00:03:57.580 --> 00:03:59.440
+as long as possible, Concorde had to
+
+123
+00:03:59.440 --> 00:03:59.840
+follow
+
+124
+00:03:59.840 --> 00:04:01.880
+a very precise flight plan.
+
+125
+00:04:01.880 --> 00:04:03.750
+The best chance for achieving this was
+
+126
+00:04:03.750 --> 00:04:05.670
+over Africa, but this didn't give the
+
+127
+00:04:05.670 --> 00:04:06.240
+team a whole
+
+128
+00:04:06.240 --> 00:04:08.700
+lot of options for airports.
+
+129
+00:04:08.700 --> 00:04:10.390
+Most of the runways in Africa were too
+
+130
+00:04:10.390 --> 00:04:11.790
+short for Concorde, and the hot
+
+131
+00:04:11.790 --> 00:04:12.620
+conditions meant
+
+132
+00:04:12.620 --> 00:04:14.630
+that Concorde would have to carry less
+
+133
+00:04:14.630 --> 00:04:15.960
+fuel during takeoff.
+
+134
+00:04:15.960 --> 00:04:18.000
+They eventually settled on the island of
+
+135
+00:04:18.000 --> 00:04:20.100
+Gran Canaria, which had a cooler climate
+
+136
+00:04:20.100 --> 00:04:20.640
+and a great
+
+137
+00:04:20.640 --> 00:04:21.640
+runway.
+
+138
+00:04:21.640 --> 00:04:23.560
+The plan was to take off, fly south and
+
+139
+00:04:23.560 --> 00:04:25.680
+intercept the moon's shadow at a specific
+
+140
+00:04:25.680 --> 00:04:26.320
+point over
+
+141
+00:04:26.320 --> 00:04:28.400
+Mauritania, where it would turn and
+
+142
+00:04:28.400 --> 00:04:30.400
+follow the shadow across the Sahara
+
+143
+00:04:30.400 --> 00:04:31.080
+Desert.
+
+144
+00:04:31.080 --> 00:04:32.950
+But the path of the shadow wasn't
+
+145
+00:04:32.950 --> 00:04:35.150
+straight, and instead followed a large
+
+146
+00:04:35.150 --> 00:04:35.760
+curve.
+
+147
+00:04:35.760 --> 00:04:38.000
+This would make science observations from
+
+148
+00:04:38.000 --> 00:04:40.100
+inside Concorde very difficult if it had
+
+149
+00:04:40.100 --> 00:04:40.800
+to constantly
+
+150
+00:04:40.800 --> 00:04:42.080
+make turns.
+
+151
+00:04:42.080 --> 00:04:43.950
+And so Pierre and his team came up with a
+
+152
+00:04:43.950 --> 00:04:45.880
+straight-line path that would touch the
+
+153
+00:04:45.880 --> 00:04:46.480
+northern
+
+154
+00:04:46.480 --> 00:04:48.790
+edge of the shadow, cut across to its
+
+155
+00:04:48.790 --> 00:04:51.840
+southern edge, and end at its northern edge.
+
+156
+00:04:51.840 --> 00:04:54.050
+This would give them up to 80 minutes in
+
+157
+00:04:54.050 --> 00:04:55.850
+the shadow without having to make a
+
+158
+00:04:55.850 --> 00:04:56.720
+single turn.
+
+159
+00:04:56.720 --> 00:04:58.150
+Since the shadow would be traveling a
+
+160
+00:04:58.150 --> 00:04:59.810
+little bit faster than Concorde, it would
+
+161
+00:04:59.810 --> 00:05:00.320
+eventually
+
+162
+00:05:00.320 --> 00:05:02.250
+outrun it, and so the team had to meet
+
+163
+00:05:02.250 --> 00:05:04.120
+the shadow at a precise point on the
+
+164
+00:05:04.120 --> 00:05:04.720
+shadow's
+
+165
+00:05:04.720 --> 00:05:06.060
+leading edge.
+
+166
+00:05:06.060 --> 00:05:07.930
+If they were to arrive more than 15
+
+167
+00:05:07.930 --> 00:05:09.610
+seconds late or a kilometer off, they
+
+168
+00:05:09.610 --> 00:05:10.400
+would fall out
+
+169
+00:05:10.400 --> 00:05:12.940
+of the shadow much sooner, and their time
+
+170
+00:05:12.940 --> 00:05:15.800
+in totality would be drastically reduced.
+
+171
+00:05:15.800 --> 00:05:17.670
+But arriving at the intercept point so
+
+172
+00:05:17.670 --> 00:05:19.600
+precisely, with all the variables of
+
+173
+00:05:19.600 --> 00:05:20.840
+weather, would be
+
+174
+00:05:20.840 --> 00:05:22.200
+a huge challenge.
+
+175
+00:05:22.200 --> 00:05:24.320
+Luckily, André Turcat was one of the
+
+176
+00:05:24.320 --> 00:05:26.590
+best pilots around, and he knew Concorde
+
+177
+00:05:26.590 --> 00:05:27.080
+better
+
+178
+00:05:27.080 --> 00:05:28.380
+than anyone.
+
+179
+00:05:28.380 --> 00:05:29.920
+With a solid flight plan, Pierre
+
+180
+00:05:29.920 --> 00:05:31.730
+recruited four other teams of scientists
+
+181
+00:05:31.730 --> 00:05:32.320
+that would
+
+182
+00:05:32.320 --> 00:05:35.520
+each carry out experiments onboard Concorde.
+
+183
+00:05:35.520 --> 00:05:37.340
+Since Concorde was going to fly over the
+
+184
+00:05:37.340 --> 00:05:39.080
+equator, the eclipse would be directly
+
+185
+00:05:39.080 --> 00:05:40.440
+above the aircraft.
+
+186
+00:05:40.440 --> 00:05:41.980
+And so holes were cut into the roof of
+
+187
+00:05:41.980 --> 00:05:43.580
+Concorde, and special windows were
+
+188
+00:05:43.580 --> 00:05:44.440
+installed to give
+
+189
+00:05:44.440 --> 00:05:46.400
+the scientists a clear view of the
+
+190
+00:05:46.400 --> 00:05:47.120
+eclipse.
+
+191
+00:05:47.120 --> 00:05:48.670
+All of the seats were removed from the
+
+192
+00:05:48.670 --> 00:05:50.270
+cabin, and the electrical supply was
+
+193
+00:05:50.270 --> 00:05:50.800
+modified to
+
+194
+00:05:50.800 --> 00:05:53.380
+provide power to the science instruments.
+
+195
+00:05:53.380 --> 00:05:55.530
+After weeks of modifications, the fastest
+
+196
+00:05:55.530 --> 00:05:57.720
+science observatory in the world was ready
+
+197
+00:05:57.720 --> 00:05:59.340
+to make history.
+
+198
+00:05:59.340 --> 00:06:02.160
+On the 30th of June, at precisely 10.08
+
+199
+00:06:02.160 --> 00:06:04.370
+in the morning, Concorde began rolling
+
+200
+00:06:04.370 --> 00:06:04.840
+down runway
+
+201
+00:06:04.840 --> 00:06:05.840
+21.
+
+202
+00:06:05.840 --> 00:06:07.910
+Turcat had decided to take off 20
+
+203
+00:06:07.910 --> 00:06:10.170
+seconds early, giving him time to correct
+
+204
+00:06:10.170 --> 00:06:11.240
+for any headwinds
+
+205
+00:06:11.240 --> 00:06:13.560
+that might slow Concorde down.
+
+206
+00:06:13.560 --> 00:06:15.130
+This turned out to be a wise choice,
+
+207
+00:06:15.130 --> 00:06:16.910
+since the weather that morning was more
+
+208
+00:06:16.910 --> 00:06:17.620
+turbulent,
+
+209
+00:06:17.620 --> 00:06:19.830
+and they ended up losing 8 seconds during
+
+210
+00:06:19.830 --> 00:06:21.320
+the climb up to altitude.
+
+211
+00:06:21.320 --> 00:06:23.150
+With 12 seconds of time still to lose
+
+212
+00:06:23.150 --> 00:06:25.460
+before reaching the intercept point, Turcat started
+
+213
+00:06:25.460 --> 00:06:27.990
+deploying small air brakes to carefully
+
+214
+00:06:27.990 --> 00:06:29.520
+bleed off some speed.
+
+215
+00:06:29.520 --> 00:06:31.430
+This quickly brought them closer to the
+
+216
+00:06:31.430 --> 00:06:32.720
+correct arrival time.
+
+217
+00:06:32.720 --> 00:06:34.550
+But the winds continued to be
+
+218
+00:06:34.550 --> 00:06:36.760
+unpredictable, and Concorde slowed down
+
+219
+00:06:36.760 --> 00:06:37.920
+too much, falling
+
+220
+00:06:37.920 --> 00:06:40.620
+4 seconds behind the scheduled arrival
+
+221
+00:06:40.620 --> 00:06:43.080
+time, with just a few minutes to go.
+
+222
+00:06:43.080 --> 00:06:44.910
+In order to make up for this, Turcat
+
+223
+00:06:44.910 --> 00:06:46.470
+briefly pushed the engines past their
+
+224
+00:06:46.470 --> 00:06:47.460
+maximum operating
+
+225
+00:06:47.460 --> 00:06:50.850
+speed of Mach 2.2, and Concorde arrived
+
+226
+00:06:50.850 --> 00:06:53.570
+at the intercept point just one second
+
+227
+00:06:53.570 --> 00:06:54.200
+late,
+
+228
+00:06:54.200 --> 00:06:56.400
+and only a kilometer off course.
+
+229
+00:06:56.400 --> 00:06:58.410
+At the exact same time, the sun fully
+
+230
+00:06:58.410 --> 00:07:00.800
+disappeared behind the moon, and Concorde
+
+231
+00:07:00.800 --> 00:07:01.960
+was now in complete
+
+232
+00:07:01.960 --> 00:07:03.080
+darkness.
+
+233
+00:07:03.080 --> 00:07:05.290
+Despite it being midday, the stars became
+
+234
+00:07:05.290 --> 00:07:07.600
+visible, and the scientists could see the
+
+235
+00:07:07.600 --> 00:07:08.540
+sun's corona
+
+236
+00:07:08.540 --> 00:07:10.320
+through their windows.
+
+237
+00:07:10.320 --> 00:07:12.480
+Concorde was now racing against time, and
+
+238
+00:07:12.480 --> 00:07:14.660
+the moon itself, and so the scientists got
+
+239
+00:07:14.660 --> 00:07:15.660
+to work.
+
+240
+00:07:15.660 --> 00:07:17.040
+Pierre and his team had developed a
+
+241
+00:07:17.040 --> 00:07:18.780
+telescope that could measure the infrared
+
+242
+00:07:18.780 --> 00:07:19.400
+light coming
+
+243
+00:07:19.400 --> 00:07:21.200
+from the sun's corona.
+
+244
+00:07:21.200 --> 00:07:23.030
+During the 74 minutes in the moon's
+
+245
+00:07:23.030 --> 00:07:24.560
+shadow, they made measurements that
+
+246
+00:07:24.560 --> 00:07:26.180
+furthered our understanding
+
+247
+00:07:26.180 --> 00:07:28.560
+of the zodiacal light, the layer of dust in
+
+248
+00:07:28.560 --> 00:07:30.790
+our solar system that gets lit up by the
+
+249
+00:07:30.790 --> 00:07:31.280
+sun.
+
+250
+00:07:31.280 --> 00:07:33.410
+The team from the US discovered that the
+
+251
+00:07:33.410 --> 00:07:35.460
+sun's corona has acoustic waves which
+
+252
+00:07:35.460 --> 00:07:36.120
+cause it to
+
+253
+00:07:36.120 --> 00:07:38.880
+pulse every 5 minutes.
+
+254
+00:07:38.880 --> 00:07:41.210
+Concorde flew perfectly for 74 minutes
+
+255
+00:07:41.210 --> 00:07:43.090
+before it left the moon's shadow and
+
+256
+00:07:43.090 --> 00:07:44.560
+landed in Chad.
+
+257
+00:07:44.560 --> 00:07:46.640
+For the scientists and pilots on board,
+
+258
+00:07:46.640 --> 00:07:48.360
+they got to witness one of the most
+
+259
+00:07:48.360 --> 00:07:49.620
+beautiful spectacles
+
+260
+00:07:49.620 --> 00:07:52.440
+from the most unique vantage point.
+
+261
+00:07:52.440 --> 00:07:54.400
+This remains the longest eclipse
+
+262
+00:07:54.400 --> 00:07:56.920
+experienced by humans, a record that will
+
+263
+00:07:56.920 --> 00:07:58.400
+most likely remain
+
+264
+00:07:58.400 --> 00:07:59.800
+for centuries.
+
+265
+00:07:59.800 --> 00:08:01.960
+And now for the Primal Space giveaway.
+
+266
+00:08:01.960 --> 00:08:04.080
+The winner of the previous giveaway is
+
+267
+00:08:04.080 --> 00:08:04.640
+Bruno.
+
+268
+00:08:04.640 --> 00:08:05.640
+Congrats!
+
+269
+00:08:05.640 --> 00:08:07.520
+In the next video, we'll be giving away
+
+270
+00:08:07.520 --> 00:08:09.440
+this Primal Space-designed Concorde
+
+271
+00:08:09.440 --> 00:08:10.240
+poster available
+
+272
+00:08:10.240 --> 00:08:11.240
+in our store.
+
+273
+00:08:11.240 --> 00:08:13.060
+All you need to do is sign up at the link
+
+274
+00:08:13.060 --> 00:08:14.590
+below, like the video, and leave a
+
+275
+00:08:14.590 --> 00:08:15.020
+comment
+
+276
+00:08:15.020 --> 00:08:17.110
+saying what you think about Concorde and
+
+277
+00:08:17.110 --> 00:08:18.400
+this eclipse flight.
+
+278
+00:08:18.400 --> 00:08:20.440
+Thank you very much for watching, and I'll
+
+279
+00:08:20.440 --> 00:08:21.800
+see you in the next video.

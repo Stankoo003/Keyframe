@@ -1,5 +1,6 @@
 "use client";
 
+import { CAPTION_SCALES, type CaptionScale } from "@/lib/caption-prefs";
 import { formatTime } from "@/lib/format";
 
 import { PLAYBACK_RATES, SEEK_STEP_SECONDS } from "./constants";
@@ -10,11 +11,9 @@ import type { PlayerActions, PlayerState } from "./use-player";
  * o hls.js-u, engine-u ni <video> elementu (samo `import type`, koji se briše u
  * kompajlu). Zato se renderuje u testu sa lažnim propsima, bez pravog strima.
  *
- * Redosled u traci je iz zahteva:
- *   play/pauza · nazad · napred · zvuk · vreme · titlovi · kvalitet · brzina · fullscreen
- *
- * Titlovi su namerno onemogućeni — dolaze u svom zadatku. Slot stoji da raspored
- * kasnije ne mora da se prepravlja.
+ * Redosled u traci je iz zahteva, uz veličinu titlova odmah uz same titlove:
+ *   play/pauza · nazad · napred · zvuk · vreme · titlovi · veličina · kvalitet ·
+ *   brzina · fullscreen
  *
  * Izgled je iz Claude Design fajla `KeyFrame Player.dc.html`: staza 4px, cyan
  * napredak, beo okrugli thumb sa oreolom, i pilule sa mono tekstom desno.
@@ -22,11 +21,16 @@ import type { PlayerActions, PlayerState } from "./use-player";
 export function PlayerControls({
   state,
   actions,
+  captionScale,
+  onCaptionScaleChange,
   chapterStarts = [],
   currentChapter = -1,
 }: {
   state: PlayerState;
   actions: PlayerActions;
+  /** Mnozilac velicine titlova; vlasnik stanja je `PlayerSurface`. */
+  captionScale: CaptionScale;
+  onCaptionScaleChange: (scale: CaptionScale) => void;
   /** Pocetci poglavlja u sekundama — crtice na traci. Prazno = ne crta se nista. */
   chapterStarts?: readonly number[];
   /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
@@ -93,6 +97,8 @@ export function PlayerControls({
         <input
           type="range"
           aria-label="Traka za premotavanje"
+          // Bez ovoga citac cita sirov broj sekundi ("184") umesto "3:04 od 8:30".
+          aria-valuetext={`${formatTime(currentTime)} od ${formatTime(duration)}`}
           min={0}
           max={duration || 0}
           step={0.1}
@@ -112,9 +118,11 @@ export function PlayerControls({
           <button
             type="button"
             onClick={actions.togglePlay}
+            // Namerno BEZ `aria-pressed`: play/pause je dugme koje menja znacenje,
+            // a ne prekidac. "Pauza, pritisnuto" se cita dvosmisleno.
             aria-label={playing ? "Pauza" : "Pusti"}
             title={playing ? "Pauza" : "Pusti"}
-            className="bg-kf-ink text-kf-accent-ink flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full font-mono text-[13px] transition-colors hover:bg-white sm:size-10"
+            className={`bg-kf-ink text-kf-accent-ink flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full font-mono text-[13px] transition-colors hover:bg-white sm:size-10 ${FOCUS_RING}`}
           >
             {playing ? "❙❙" : "▶"}
           </button>
@@ -131,15 +139,19 @@ export function PlayerControls({
             <button
               type="button"
               onClick={actions.toggleMute}
-              aria-label={muted ? "Uključi zvuk" : "Utišaj"}
+              // Prekidac: labela je STALNA, stanje nosi `aria-pressed`. Kad bi se
+              // menjalo oboje, citac bi stanje izgovorio dvaput i protivrecno.
+              aria-label="Utišaj zvuk"
+              aria-pressed={muted}
               title={muted ? "Uključi zvuk" : "Utišaj"}
-              className="text-kf-ink3 hover:text-kf-accent cursor-pointer font-mono text-[12px] transition-colors"
+              className={`text-kf-ink3 hover:text-kf-accent cursor-pointer font-mono text-[12px] transition-colors ${FOCUS_RING}`}
             >
               {muted || volume === 0 ? "🔇" : "🔊"}
             </button>
             <input
               type="range"
               aria-label="Jačina zvuka"
+              aria-valuetext={`${Math.round((muted ? 0 : volume) * 100)}%`}
               min={0}
               max={1}
               step={0.05}
@@ -158,16 +170,9 @@ export function PlayerControls({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {/* Slot za titlove — popunjava se u zasebnom zadatku. */}
-          <button
-            type="button"
-            disabled
-            title="Titlovi — dolaze u sledećem zadatku"
-            aria-label="Titlovi (još nedostupno)"
-            className={`${PILL} opacity-40`}
-          >
-            CC
-          </button>
+          <CaptionsButton state={state} onToggle={actions.toggleCaptions} />
+
+          <CaptionScaleSelect state={state} value={captionScale} onChange={onCaptionScaleChange} />
 
           <QualitySelect state={state} onSelect={actions.selectLevel} />
 
@@ -188,6 +193,7 @@ export function PlayerControls({
             type="button"
             onClick={actions.toggleFullscreen}
             aria-label="Ceo ekran"
+            aria-pressed={state.fullscreen}
             title="Ceo ekran"
             className={PILL}
           >
@@ -203,8 +209,17 @@ export function PlayerControls({
  * Pilula iz dizajna — zajednicki izgled za CC, kvalitet, brzinu i fullscreen.
  * Jedan string umesto cetiri kopije, da se ne raziđu.
  */
+/**
+ * Vidljiv fokus je zahtev, ne ukras — zato stoji u konstanti koju dele SVA
+ * dugmad. Da svako nosi svoju kopiju, prvo bi se razislo, a onda bi neko dugme
+ * ostalo na podrazumevanom prstenu koji se na tamnoj podlozi jedva vidi.
+ */
+const FOCUS_RING =
+  "focus-visible:outline-kf-accent focus-visible:outline-2 focus-visible:outline-offset-2";
+
 const PILL =
-  "bg-kf-fill border-kf-line-strong text-kf-ink3 hover:bg-kf-fill-hover cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-[11px] leading-none tracking-[0.06em] transition-colors disabled:cursor-default disabled:hover:bg-kf-fill";
+  "bg-kf-fill border-kf-line-strong text-kf-ink3 hover:bg-kf-fill-hover cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-[11px] leading-none tracking-[0.06em] transition-colors disabled:cursor-default disabled:hover:bg-kf-fill " +
+  FOCUS_RING;
 
 /** Tekstualno dugme za preskakanje; znak i broj se izvode iz `delta`. */
 function SkipButton({ onClick, delta }: { onClick: () => void; delta: number }) {
@@ -217,7 +232,7 @@ function SkipButton({ onClick, delta }: { onClick: () => void; delta: number }) 
       onClick={onClick}
       aria-label={title}
       title={title}
-      className="text-kf-ink3 hover:text-kf-accent shrink-0 cursor-pointer p-1.5 font-mono text-[12px] whitespace-nowrap transition-colors"
+      className={`text-kf-ink3 hover:text-kf-accent shrink-0 cursor-pointer p-1.5 font-mono text-[12px] whitespace-nowrap transition-colors ${FOCUS_RING}`}
     >
       {label}
     </button>
@@ -248,6 +263,78 @@ function QualitySelect({
       {state.levels.map((level) => (
         <option key={level.index} value={level.index}>
           {level.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/**
+ * Prekidac za titlove.
+ *
+ * Kad snimak nema titl, dugme je ONEMOGUCENO a ne sakriveno — isto kako se
+ * ponasa `QualitySelect` kad engine ne izlaze ladder. Dva razloga: traka se ne
+ * prelama kad se predje sa snimka na snimak, a korisnik nauci da titlova nema
+ * na OVOM snimku, umesto da zakljuci da ih plejer uopste ne podrzava.
+ *
+ * Onemoguceno dugme uz to nije fokusabilno, pa prestaje i da bude prazna stanica
+ * pri tabovanju.
+ */
+function CaptionsButton({ state, onToggle }: { state: PlayerState; onToggle: () => void }) {
+  const unavailable = state.textTracks.length === 0;
+  const on = state.activeTextTrack >= 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={unavailable}
+      data-on={on}
+      aria-pressed={on}
+      aria-label={unavailable ? "Titlovi — nema titlova za ovaj snimak" : "Titlovi"}
+      title={unavailable ? "Nema titlova za ovaj snimak" : "Titlovi (C)"}
+      className={`${PILL} data-[on=true]:border-kf-accent data-[on=true]:text-kf-accent disabled:opacity-40`}
+    >
+      CC
+    </button>
+  );
+}
+
+/**
+ * Velicina titlova.
+ *
+ * Ime je "Veličina titlova", a ne "Titlovi …" — citac ekrana tako izgovori
+ * "Veličina titlova, 130%", sto je jednoznacno naspram dugmeta "Titlovi".
+ *
+ * ONEMOGUCENO kad snimak nema staze, iz istog razloga kao samo dugme: podesavanje
+ * velicine nepostojecih titlova je tacno ona prazna kontrola koja ne radi nista.
+ * Onemogucen <select> uz to ispada iz tab redosleda, pa se broj stanica pri
+ * tabovanju na takvom snimku uopste ne menja.
+ *
+ * NIJE onemoguceno kad titlovi postoje ali su ugaseni — treperilo bi na svaki
+ * CC toggle i otimalo fokus, a velicinu je legitimno podesiti i pre paljenja.
+ */
+function CaptionScaleSelect({
+  state,
+  value,
+  onChange,
+}: {
+  state: PlayerState;
+  value: CaptionScale;
+  onChange: (scale: CaptionScale) => void;
+}) {
+  return (
+    <select
+      aria-label="Veličina titlova"
+      title="Veličina titlova"
+      disabled={state.textTracks.length === 0}
+      value={value}
+      onChange={(event) => onChange(Number(event.target.value) as CaptionScale)}
+      className={`${PILL} disabled:opacity-40`}
+    >
+      {CAPTION_SCALES.map((scale) => (
+        <option key={scale} value={scale}>
+          {Math.round(scale * 100)}%
         </option>
       ))}
     </select>

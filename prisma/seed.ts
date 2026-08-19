@@ -27,6 +27,15 @@ type SeedChapter = {
   startSeconds: number;
 };
 
+type SeedSubtitle = {
+  /** BCP-47 oznaka jezika — ide pravo u <track srclang>. */
+  lang: string;
+  /** Ime na JEZIKU TITLA ("English", ne "Engleski"). */
+  label: string;
+  /** Samo ime fajla; putanja se sklapa kao "captions/<file>". */
+  file: string;
+};
+
 type SeedClip = {
   slug: string;
   title: string;
@@ -42,6 +51,13 @@ type SeedClip = {
   published?: boolean;
   /** Folder sa media fajlovima; podrazumevano isti kao slug. */
   mediaSlug?: string;
+  /**
+   * Titlovi. Podrazumevano ih NEMA, i to je namerno: sinteticki klipovi ispod
+   * su ffmpeg test-sare sa sinusnim tonom, u njima nema govora koji bi se
+   * titlovao. Prazna lista je fixture za drugu stranu funkcionalnosti —
+   * plejer po njoj onemogucuje CC kontrolu umesto da nudi toggle koji ne radi.
+   */
+  subtitles?: readonly SeedSubtitle[];
 };
 
 const CLIPS: readonly SeedClip[] = [
@@ -75,6 +91,8 @@ const CLIPS: readonly SeedClip[] = [
     title: "Fractal zoom",
     description: "Mandelbrot zum — postepena promena, blag pritisak na bitrate.",
     durationSeconds: 20,
+    // Jedini klip sa SRT titlom — fixture za konverziju SRT -> WebVTT.
+    subtitles: [{ lang: "sr", label: "Srpski", file: "clip-03-fractal.sr.srt" }],
     chapters: [
       { title: "Ceo skup", startSeconds: 0 },
       { title: "Ulazak u rub", startSeconds: 6 },
@@ -108,6 +126,8 @@ const CLIPS: readonly SeedClip[] = [
       { title: "Izlazak iz senke", startSeconds: 390 },
       { title: "Povratak", startSeconds: 462 },
     ],
+    // Jedini klip sa pravim govorom, pa jedini koji ima titlove.
+    subtitles: [{ lang: "en", label: "English", file: "solar-eclipse.en.vtt" }],
   },
   {
     slug: "clip-01-bars-draft",
@@ -156,6 +176,46 @@ function prepareChapters(clip: SeedClip) {
   });
 }
 
+/**
+ * Proverava titlove jednog klipa i sklapa relativnu putanju.
+ *
+ * Dozvoljena su oba formata: SRT plejer pretvara u WebVTT u browseru, vidi
+ * `src/components/player/subtitle-source.ts`. Ekstenzija ovde je samo gruba
+ * provera — pravi format se u plejeru cita iz sadrzaja fajla.
+ *
+ * Puca iz istog razloga kao `prepareChapters`: pogresna putanja do titl fajla
+ * ne obara ni seed ni stranicu — plejer samo tiho ne prikaze titlove, sto se
+ * lovi mnogo duze nego greska ovde.
+ */
+function prepareSubtitles(clip: SeedClip) {
+  const subtitles = clip.subtitles ?? [];
+  const seen = new Set<string>();
+
+  return subtitles.map((subtitle) => {
+    if (!/\.(vtt|srt)$/.test(subtitle.file)) {
+      throw new Error(`${clip.slug}: titl "${subtitle.file}" nije .vtt ni .srt fajl.`);
+    }
+
+    if (subtitle.file.includes("/")) {
+      throw new Error(
+        `${clip.slug}: titl "${subtitle.file}" sadrzi kosu crtu — ocekuje se samo ime fajla.`,
+      );
+    }
+
+    if (seen.has(subtitle.lang)) {
+      throw new Error(`${clip.slug}: dva titla za isti jezik "${subtitle.lang}".`);
+    }
+    seen.add(subtitle.lang);
+
+    return {
+      lang: subtitle.lang,
+      label: subtitle.label,
+      path: `captions/${subtitle.file}`,
+      isDefault: false,
+    };
+  });
+}
+
 async function main() {
   const connectionString = process.env["DATABASE_URL"];
   if (!connectionString) {
@@ -169,6 +229,7 @@ async function main() {
   try {
     for (const clip of CLIPS) {
       const chapters = prepareChapters(clip);
+      const subtitles = prepareSubtitles(clip);
       const mediaSlug = clip.mediaSlug ?? clip.slug;
       const published = clip.published ?? true;
 
@@ -194,8 +255,18 @@ async function main() {
         data: chapters.map((chapter) => ({ ...chapter, videoId: video.id })),
       });
 
+      // deleteMany ide BEZUSLOVNO, i kad klip nema titlove — inace uklanjanje
+      // titla iz CLIPS ne bi obrisalo red pri ponovnom seed-u.
+      await prisma.subtitle.deleteMany({ where: { videoId: video.id } });
+      if (subtitles.length > 0) {
+        await prisma.subtitle.createMany({
+          data: subtitles.map((subtitle) => ({ ...subtitle, videoId: video.id })),
+        });
+      }
+
       console.log(
         `  ${clip.slug.padEnd(20)} ${clip.durationSeconds}s, ${chapters.length} poglavlja` +
+          (subtitles.length > 0 ? `, ${subtitles.length} titl` : "") +
           (published ? "" : "  [nacrt]"),
       );
     }
@@ -203,7 +274,11 @@ async function main() {
     const videos = await prisma.video.count();
     const publishedCount = await prisma.video.count({ where: { published: true } });
     const chapters = await prisma.chapter.count();
-    console.log(`\ngotovo: ${videos} videa (${publishedCount} objavljeno), ${chapters} poglavlja`);
+    const subtitles = await prisma.subtitle.count();
+    console.log(
+      `\ngotovo: ${videos} videa (${publishedCount} objavljeno), ` +
+        `${chapters} poglavlja, ${subtitles} titl`,
+    );
   } finally {
     await prisma.$disconnect();
   }

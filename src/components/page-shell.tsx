@@ -14,7 +14,5 @@ export function PageShell({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={`mx-auto w-full max-w-360 px-5 md:px-12 ${className}`}>{children}</div>
-  );
+  return <div className={`mx-auto w-full max-w-360 px-5 md:px-12 ${className}`}>{children}</div>;
 }

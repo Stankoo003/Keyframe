@@ -43,13 +43,20 @@ fail() {
   FAILED=1
 }
 
-# Prvi klip iz lokalnog foldera sluzi kao uzorak.
+# Prvi klip iz lokalnog foldera sluzi kao uzorak za HLS provere.
+#
+# Nije fatalno kad ga nema: HLS izlaz je gitignore-ovan pa ga svez klon nema,
+# ali titlovi se drze u gitu i mogu da se provere i tada.
 CLIP="$(ls public/media/hls 2>/dev/null | head -1)"
-[[ -n "$CLIP" ]] || die "nema klipova u public/media/hls"
+
+# Titlovi su u gitu, pa se uzorak cita iz repoa, a ne sa CDN-a.
+CAPTION="$(ls public/media/captions/*.vtt 2>/dev/null | head -1)"
+CAPTION="${CAPTION##*/}"
 
 echo "base URL : $BASE"
 echo "app origin: $APP_ORIGIN"
-echo "uzorak   : $CLIP"
+echo "uzorak   : ${CLIP:-(nema lokalnog HLS-a)}"
+echo "titl     : ${CAPTION:-(nema)}"
 echo
 
 # Vraca "<http_code>|<content-type>|<allow-origin>"
@@ -93,19 +100,36 @@ check() {
   fi
 }
 
-echo "master playlista"
-check "$BASE/hls/$CLIP/master.m3u8" "application/vnd.apple.mpegurl" "master.m3u8"
+if [[ -z "$CLIP" ]]; then
+  echo "HLS provere preskocene — nema public/media/hls (pokreni: npm run media:build)"
+else
+  echo "master playlista"
+  check "$BASE/hls/$CLIP/master.m3u8" "application/vnd.apple.mpegurl" "master.m3u8"
 
+  echo
+  echo "rendition playliste i segmenti"
+  for r in 360p 540p 720p; do
+    check "$BASE/hls/$CLIP/$r/index.m3u8" "application/vnd.apple.mpegurl" "$r/index.m3u8"
+    check "$BASE/hls/$CLIP/$r/seg_000.ts" "video/mp2t" "$r/seg_000.ts"
+  done
+fi
+
+# Titlovi se proveravaju posebno: <track> je CORS fetch (vidi `crossOrigin` u
+# player-surface.tsx), pa pogresan Content-Type ili odsutan ACAO znaci da se
+# .vtt preuzme a cue-ovi ostanu prazni — bez ijedne greske u konzoli.
 echo
-echo "rendition playliste i segmenti"
-for r in 360p 540p 720p; do
-  check "$BASE/hls/$CLIP/$r/index.m3u8" "application/vnd.apple.mpegurl" "$r/index.m3u8"
-  check "$BASE/hls/$CLIP/$r/seg_000.ts" "video/mp2t" "$r/seg_000.ts"
-done
+echo "titlovi"
+if [[ -z "$CAPTION" ]]; then
+  fail "nema .vtt u public/media/captions"
+else
+  check "$BASE/captions/$CAPTION" "text/vtt" "$CAPTION"
+fi
 
 echo
 echo "reprodukcija sa CDN-a"
-if command -v ffprobe >/dev/null 2>&1; then
+if [[ -z "$CLIP" ]]; then
+  echo "  (preskoceno — nema lokalnog uzorka)"
+elif command -v ffprobe >/dev/null 2>&1; then
   if ffprobe -v error -show_entries stream=codec_name -of csv=p=0 \
     "$BASE/hls/$CLIP/master.m3u8" >/dev/null 2>&1; then
     pass "ffprobe uspesno cita stream"
