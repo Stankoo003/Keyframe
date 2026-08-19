@@ -27,8 +27,14 @@ export const AUTO_LEVEL = -1;
 /** High-level eventi koje engine emituje ka hook-u. */
 export type EngineEvent =
   | { type: "levels"; levels: QualityLevel[] }
-  /** `auto` je trigger za Stats overlay: true = ABR odluka, false = rucni izbor. */
-  | { type: "levelswitched"; level: number; auto: boolean }
+  /**
+   * `level` je ono sto UI kontrole prikazuju (AUTO_LEVEL dok je ABR ukljucen —
+   * <select> mora da ostane na "Auto", ne na broju koji ABR trenutno bira).
+   * `actualLevel` je STVARNI izabran nivo, uvek numericki, cak i u auto modu —
+   * bez njega bi Stats overlay log zauvek pisao "Auto → Auto" i sakrio svaku
+   * ABR odluku. `auto` je trigger: true = ABR odluka, false = rucni izbor.
+   */
+  | { type: "levelswitched"; level: number; actualLevel: number; auto: boolean }
   /** Jedan ucitan segment — koristi Stats overlay za fetch-time log. */
   | { type: "fragloaded"; level: number; loadTimeMs: number; sizeBytes: number; durationS: number }
   | { type: "error"; fatal: boolean; message: string };
@@ -40,6 +46,12 @@ export interface PlaybackEngine {
   getLevels(): QualityLevel[];
   /** Aktivni nivo; `AUTO_LEVEL` za ABR. */
   getCurrentLevel(): number;
+  /**
+   * STVARNI nivo koji trenutno igra, uvek numericki — i dok je ABR ukljucen.
+   * Za Stats overlay: `getCurrentLevel()` bi u auto modu uvek vratio
+   * `AUTO_LEVEL`, sto sakriva sta je ABR zapravo izabrao.
+   */
+  getActualLevel(): number;
   /** Postavi nivo ručno; `AUTO_LEVEL` vraća na ABR. */
   setLevel(index: number): void;
   /** Da li engine uopšte izlaže ručni izbor nivoa (Safari native ne izlaže). */

@@ -55,6 +55,7 @@ export async function createHlsJsEngine(
     emit({
       type: "levelswitched",
       level: hls.autoLevelEnabled ? AUTO_LEVEL : data.level,
+      actualLevel: data.level,
       auto: hls.autoLevelEnabled,
     });
   });
@@ -82,6 +83,7 @@ export async function createHlsJsEngine(
   return {
     getLevels: () => levels,
     getCurrentLevel: () => (hls.autoLevelEnabled ? AUTO_LEVEL : hls.currentLevel),
+    getActualLevel: () => hls.currentLevel,
     setLevel: (index: number) => {
       // -1 vraća hls.js na automatski ABR; inače fiksira nivo.
       hls.currentLevel = index;

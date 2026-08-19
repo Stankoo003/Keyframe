@@ -24,6 +24,17 @@ function formatLevelLabel(index: number, levels: PlayerStatsSnapshot["levels"]):
   return levels.find((level) => level.index === index)?.label ?? `#${index}`;
 }
 
+/**
+ * "Auto (720p)" kad je ABR ukljucen i vec je nesto izabrao, cisto "Auto" pre
+ * prve odluke — `currentLevel` sam bi u ABR modu uvek pisao samo "Auto" i
+ * sakrio sta je engine stvarno pustio.
+ */
+function formatRendition(snapshot: PlayerStatsSnapshot): string {
+  if (snapshot.currentLevel !== AUTO_LEVEL) return formatLevelLabel(snapshot.currentLevel, snapshot.levels);
+  if (snapshot.actualLevel === AUTO_LEVEL) return "Auto";
+  return `Auto (${formatLevelLabel(snapshot.actualLevel, snapshot.levels)})`;
+}
+
 function formatClock(timestamp: number): string {
   const date = new Date(timestamp);
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -119,7 +130,7 @@ export function StatsOverlay({
       </div>
 
       <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-kf-ink3">
-        <Row label="Rendition" value={formatLevelLabel(snapshot.currentLevel, snapshot.levels)} />
+        <Row label="Rendition" value={formatRendition(snapshot)} />
         <Row label="Bandwidth" value={formatBandwidth(snapshot.bandwidthEstimate)} />
         <Row label="Buffer ahead" value={`${snapshot.bufferAheadSeconds.toFixed(1)}s`} />
         <Row

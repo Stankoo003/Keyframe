@@ -31,6 +31,8 @@ export type StatsLogEntry = SwitchLogEntry | StallLogEntry;
 
 export type PlayerStatsSnapshot = {
   currentLevel: number;
+  /** Stvarni nivo koji trenutno igra — vidi `getActualLevel()` na engine-u. */
+  actualLevel: number;
   levels: QualityLevel[];
   /** b/s; `null` kad engine ne izlaze procenu (native HLS). */
   bandwidthEstimate: number | null;
@@ -47,6 +49,7 @@ export type PlayerStatsSnapshot = {
 
 const EMPTY_SNAPSHOT: PlayerStatsSnapshot = {
   currentLevel: -1,
+  actualLevel: -1,
   levels: [],
   bandwidthEstimate: null,
   bufferAheadSeconds: 0,
@@ -91,7 +94,7 @@ export function usePlayerStats(
     let log: StatsLogEntry[] = [];
     let nextId = 0;
     let stallCount = 0;
-    let lastLevel = engine?.getCurrentLevel() ?? -1;
+    let lastActualLevel = engine?.getActualLevel() ?? -1;
     let lastFrag: { loadMs: number; sizeBytes: number } | null = null;
     let stallStart: number | null = null;
 
@@ -102,8 +105,16 @@ export function usePlayerStats(
 
     const unsubscribeEngine = engine?.subscribe((event) => {
       if (event.type === "levelswitched") {
-        pushLog({ kind: "switch", timestamp: Date.now(), from: lastLevel, to: event.level, auto: event.auto });
-        lastLevel = event.level;
+        // `actualLevel`, ne `level`: potonji je -1 (Auto) svaki put kad je ABR
+        // ukljucen, pa bi log zauvek pisao "Auto → Auto" i sakrio ABR odluke.
+        pushLog({
+          kind: "switch",
+          timestamp: Date.now(),
+          from: lastActualLevel,
+          to: event.actualLevel,
+          auto: event.auto,
+        });
+        lastActualLevel = event.actualLevel;
       } else if (event.type === "fragloaded") {
         lastFrag = { loadMs: event.loadTimeMs, sizeBytes: event.sizeBytes };
       }
@@ -137,6 +148,7 @@ export function usePlayerStats(
 
       setSnapshot({
         currentLevel: engine?.getCurrentLevel() ?? -1,
+        actualLevel: engine?.getActualLevel() ?? -1,
         levels: engine?.getLevels() ?? [],
         bandwidthEstimate: engine?.getBandwidthEstimate() ?? null,
         bufferAheadSeconds: bufferAheadSeconds(video),
