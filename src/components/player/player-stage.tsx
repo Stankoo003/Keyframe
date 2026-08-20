@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChapterList } from "@/components/chapter-list";
-import type { ChapterDto } from "@/domain/video";
+import type { ChapterDto, SubtitleDto } from "@/domain/video";
 import { currentChapterIndex } from "@/lib/format";
 import { clearProgress, readProgress, saveProgress } from "@/lib/playback-progress";
 
@@ -34,6 +34,7 @@ export function PlayerStage({
   poster,
   chapters,
   durationSeconds,
+  subtitles,
   children,
 }: {
   /** `Video.id` iz baze — kljuc za pamcenje pozicije; stabilan i kad se slug promeni. */
@@ -43,6 +44,8 @@ export function PlayerStage({
   poster?: string | null;
   chapters: readonly ChapterDto[];
   durationSeconds: number;
+  /** Prosledjuje se kroz — samo <video> ih koristi. */
+  subtitles: readonly SubtitleDto[];
   children?: React.ReactNode;
 }) {
   const player = usePlayer(src);
@@ -136,6 +139,7 @@ export function PlayerStage({
         poster={poster}
         chapterStarts={starts}
         currentChapter={activeChapter}
+        subtitles={subtitles}
         overlay={
           showResume && savedPosition !== null ? (
             <ResumePrompt seconds={savedPosition} onResume={onResume} onRestart={onRestart} />

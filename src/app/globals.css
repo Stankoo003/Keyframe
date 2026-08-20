@@ -26,8 +26,13 @@
   --kf-ink: #f2f4f6;
   --kf-ink2: #a7afb7;
   --kf-ink3: #dfe4e8;
-  --kf-mut: #6d767e;
-  --kf-mut2: #727b83;
+  /*
+   * Prigusen tekst. Vrednosti su podignute (#6d767e / #727b83) da prodju WCAG
+   * AA kontrast 4.5:1 na SVE tri podloge — bg, surface i surface2. Stare su
+   * davale 4.31 i 4.49, sto axe obara. Razlika izmedju mut i mut2 je zadrzana.
+   */
+  --kf-mut: #767f87;
+  --kf-mut2: #7e878f;
 
   /* Akcenat je cyan, ne vise plav — otud `accent` umesto `blue` u imenu. */
   --kf-accent: #7de3ea;
@@ -187,6 +192,50 @@ body {
   width: 10px;
   height: 10px;
   box-shadow: none;
+}
+
+/*
+ * Titlovi. Crtamo ih SAMI (components/player/caption-overlay.tsx), pa `::cue`
+ * ovde vise nema sta da radi — nijedna staza nikad nije "showing".
+ *
+ * Boja, pozadina, font i velicina dolaze kao inline stil PO CUE-u (korisnikova
+ * podesavanja iz caption-prefs.ts) — ova klasa nosi samo ono sto se NE menja:
+ * razmak, oblik kutije i fallback velicina za browsere bez `cqi` podrske.
+ *
+ * `cqi` je 1% inline velicine sloja sa titlovima, a taj sloj se poklapa sa
+ * slikom. Zato titlovi rastu i sa plejerom i sa fullscreen-om, bez ijedne
+ * linije JS-a. `vw` bi pratio PROZOR, pa bi plejer od 640px u prozoru od
+ * 1800px dobio pogresnu velicinu.
+ *
+ * Padding i radijus su u `em` da kutija raste zajedno sa slovima — u `px` bi na
+ * najvecoj velicini izgledala stegnuto.
+ */
+.kf-cue {
+  line-height: 1.35;
+  padding: 0.15em 0.5em;
+  border-radius: 0.2em;
+  text-align: center;
+  text-wrap: balance;
+  /* Rezerva za browsere bez container query jedinica ili bez podrske za
+     inline `calc(... cqi ...)` — inline stil se u tom slucaju odbaci i
+     ostaje ova deklaracija. */
+  font-size: clamp(15px, 3.2vw, 30px);
+}
+
+/*
+ * Stil ivice teksta — YouTube/Netflix nude tacno ova tri: bez ivice, senka,
+ * kontura. Odvojeno od `background` (koji je kutija ISPOD teksta): ivica crta
+ * OKO samih slova i ostaje citljiva i kad je pozadina potpuno providna.
+ */
+.kf-cue[data-edge="shadow"] {
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.kf-cue[data-edge="outline"] {
+  -webkit-text-stroke: 0.05em rgba(0, 0, 0, 0.9);
+  paint-order: stroke fill;
 }
 
 @keyframes kf-pulse {

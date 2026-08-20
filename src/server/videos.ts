@@ -98,6 +98,7 @@ export async function getPublishedVideoByIdOrSlug(idOrSlug: string): Promise<Vid
     },
     include: {
       chapters: { orderBy: { order: "asc" } },
+      subtitles: { orderBy: { lang: "asc" } },
       _count: { select: { chapters: true } },
     },
   });
@@ -111,6 +112,13 @@ export async function getPublishedVideoByIdOrSlug(idOrSlug: string): Promise<Vid
       title: chapter.title,
       startSeconds: chapter.startSeconds,
       order: chapter.order,
+    })),
+    subtitles: video.subtitles.map((subtitle) => ({
+      id: subtitle.id,
+      lang: subtitle.lang,
+      label: subtitle.label,
+      url: mediaUrl(subtitle.path),
+      isDefault: subtitle.isDefault,
     })),
   };
 }

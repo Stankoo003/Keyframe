@@ -62,7 +62,6 @@ export default function VideoDetailError({
             </Link>
           </div>
         </div>
-
       </div>
     </PageShell>
   );
