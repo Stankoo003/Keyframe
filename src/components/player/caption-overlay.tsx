@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { CaptionScale } from "@/lib/caption-prefs";
+import type { CaptionBgOpacity, CaptionScale } from "@/lib/caption-prefs";
 
 import { readTextTracks } from "./text-tracks";
 
@@ -29,14 +29,29 @@ export function CaptionOverlay({
   videoRef,
   activeTextTrack,
   scale,
+  bgOpacity,
+  delaySeconds,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   /** Indeks ukljucene staze, ili -1 kad su titlovi ugaseni. */
   activeTextTrack: number;
   scale: CaptionScale;
+  bgOpacity: CaptionBgOpacity;
+  /** Pomeraj u sekundama; pozitivno kasni titlove, negativno ih ubrzava. */
+  delaySeconds: number;
 }) {
   const [lines, setLines] = useState<string[]>([]);
   const visible = activeTextTrack >= 0;
+
+  /**
+   * Izvorni tajminzi cue-ova, PRE nego sto im primenimo `delaySeconds`.
+   *
+   * WeakMap zivi za ceo vek komponente (ne po efektu): kad se delay promeni,
+   * efekat ispod se ponovo pokrece i cue.startTime/endTime su vec pomereni od
+   * proslog puta. Bez ovog pamcenja bi se drugi pomeraj racunao od vec
+   * pomerene vrednosti i pomeraji bi se sabirali umesto da se zamenjuju.
+   */
+  const originalsRef = useRef(new WeakMap<TextTrackCue, { start: number; end: number }>());
 
   useEffect(() => {
     const video = videoRef.current;
@@ -47,6 +62,24 @@ export function CaptionOverlay({
 
     let el: HTMLTrackElement | null = null;
     let track: TextTrack | null = null;
+
+    const applyDelay = () => {
+      const cues = track?.cues;
+      if (!cues) return;
+
+      for (let i = 0; i < cues.length; i++) {
+        const cue = cues[i];
+        if (!cue) continue;
+
+        let original = originalsRef.current.get(cue);
+        if (!original) {
+          original = { start: cue.startTime, end: cue.endTime };
+          originalsRef.current.set(cue, original);
+        }
+        cue.startTime = original.start + delaySeconds;
+        cue.endTime = original.end + delaySeconds;
+      }
+    };
 
     const sync = () => {
       setLines(
@@ -76,8 +109,13 @@ export function CaptionOverlay({
       // prazan zauvek. Vidi isti komentar u use-player.ts.
       if (track.mode === "disabled") track.mode = "hidden";
 
+      applyDelay();
+
       track.addEventListener("cuechange", sync);
-      el.addEventListener("load", sync);
+      el.addEventListener("load", () => {
+        applyDelay();
+        sync();
+      });
 
       // OBAVEZNO odmah, ne samo na `cuechange`: taj dogadjaj stize tek na
       // sledecoj granici cue-a, pa bi korisnik posle klika na CC gledao prazan
@@ -96,7 +134,9 @@ export function CaptionOverlay({
       video.removeEventListener("loadedmetadata", attach);
       video.removeEventListener("emptied", attach);
     };
-  }, [activeTextTrack, videoRef]);
+    // `delaySeconds` je namerno u zavisnostima: promena ponovo pokrece attach,
+    // sto ponovo primeni pomeraj na sve trenutne cue-ove preko `applyDelay`.
+  }, [activeTextTrack, videoRef, delaySeconds]);
 
   return (
     /*
@@ -125,7 +165,7 @@ export function CaptionOverlay({
      */
     <div
       data-captions={visible ? "on" : "off"}
-      style={{ "--kf-cc-scale": scale } as React.CSSProperties}
+      style={{ "--kf-cc-scale": scale, "--kf-cc-bg": bgOpacity } as React.CSSProperties}
       className="@container pointer-events-none absolute inset-x-0 top-0 z-10 flex aspect-video flex-col items-center justify-end gap-1 px-[6%] pb-22"
     >
       {visible &&

@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 
 import type { SubtitleDto } from "@/domain/video";
 import {
-  getCaptionScaleServerSnapshot,
-  getCaptionScaleSnapshot,
-  saveCaptionScale,
-  subscribeCaptionScale,
-  type CaptionScale,
+  getCaptionPrefsServerSnapshot,
+  getCaptionPrefsSnapshot,
+  saveCaptionPrefs,
+  subscribeCaptionPrefs,
+  type CaptionPrefs,
 } from "@/lib/caption-prefs";
 import { formatTime } from "@/lib/format";
 
@@ -75,21 +75,22 @@ export function PlayerSurface({
   const { message: announcement, announce } = useAnnouncer();
 
   /**
-   * Velicina titlova se cita kroz `useSyncExternalStore`, a ne kroz lazy
+   * Podesavanja titlova se citaju kroz `useSyncExternalStore`, a ne kroz lazy
    * `useState` initializer.
    *
    * `player-stage.tsx` cita zapamcenu poziciju lazy initializer-om i prolazi
    * nekaznjeno — ali samo zato sto je prikaz te vrednosti vezan za `state.ready`,
    * koje je pri hidrataciji `false`, pa i server i klijent renderuju `null`.
    *
-   * Ovde tog izlaza NEMA: <select> i inline `--kf-cc-scale` postoje vec u prvom
-   * renderu, a server nema `localStorage`. `getServerSnapshot` resava tacno to —
-   * server i hidratacija vide podrazumevanu vrednost, prava stigne odmah posle.
+   * Ovde tog izlaza NEMA: panel i inline `--kf-cc-scale`/`--kf-cc-bg` postoje
+   * vec u prvom renderu, a server nema `localStorage`. `getServerSnapshot`
+   * resava tacno to — server i hidratacija vide podrazumevanu vrednost, prava
+   * stigne odmah posle.
    */
-  const captionScale = useSyncExternalStore(
-    subscribeCaptionScale,
-    getCaptionScaleSnapshot,
-    getCaptionScaleServerSnapshot,
+  const captionPrefs = useSyncExternalStore(
+    subscribeCaptionPrefs,
+    getCaptionPrefsSnapshot,
+    getCaptionPrefsServerSnapshot,
   );
 
   /**
@@ -97,18 +98,29 @@ export function PlayerSurface({
    *
    * Ostala stanja (brzina, zvuk, pauza) stizu iz vise izvora — dugme, precica,
    * dogadjaj sa elementa — pa se moraju pratiti kroz stanje da se nijedan put ne
-   * propusti. Velicina titlova ima tacno JEDAN izvor: ovaj handler.
+   * propusti. Podesavanja titlova imaju tacno JEDAN izvor: ovaj handler.
    *
    * Uz to, pracenje kroz stanje bi objavilo i promenu koju efekat iznad napravi
    * citajuci `localStorage` — pa bi plejer pri svakom ucitavanju stranice rekao
    * "Veličina titlova 130%", objavu koju korisnik nije izazvao.
    */
-  const onCaptionScaleChange = useCallback(
-    (scale: CaptionScale) => {
-      // `saveCaptionScale` sam obavestava pretplatnike, pa novo stanje stize
+  const onCaptionPrefsChange = useCallback(
+    (patch: Partial<CaptionPrefs>) => {
+      // `saveCaptionPrefs` sam obavestava pretplatnike, pa novo stanje stize
       // nazad kroz `useSyncExternalStore` — nema drugog izvora istine.
-      saveCaptionScale(scale);
-      announce(`Veličina titlova ${Math.round(scale * 100)}%`);
+      saveCaptionPrefs(patch);
+
+      // Pomeraj namerno NE objavljuje: to je klizac koji se vuce, pa bi svaki
+      // korak od 0.1s zatrpao zivi region — isto pravilo kao klizac za zvuk,
+      // ciji `aria-valuetext` vec nosi tu informaciju bez `aria-live` spama.
+      if (patch.scale !== undefined) announce(`Veličina titlova ${Math.round(patch.scale * 100)}%`);
+      if (patch.bgOpacity !== undefined) {
+        announce(
+          patch.bgOpacity === 0
+            ? "Pozadina titlova isključena"
+            : `Pozadina titlova ${Math.round(patch.bgOpacity * 100)}%`,
+        );
+      }
     },
     [announce],
   );
@@ -301,7 +313,9 @@ export function PlayerSurface({
           <CaptionOverlay
             videoRef={videoRef}
             activeTextTrack={state.activeTextTrack}
-            scale={captionScale}
+            scale={captionPrefs.scale}
+            bgOpacity={captionPrefs.bgOpacity}
+            delaySeconds={captionPrefs.delaySeconds}
           />
 
           {overlay}
@@ -346,8 +360,8 @@ export function PlayerSurface({
             <PlayerControls
               state={state}
               actions={actions}
-              captionScale={captionScale}
-              onCaptionScaleChange={onCaptionScaleChange}
+              captionPrefs={captionPrefs}
+              onCaptionPrefsChange={onCaptionPrefsChange}
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
             />

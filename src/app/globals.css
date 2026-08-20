@@ -211,7 +211,7 @@ body {
  * najvecoj velicini izgledala stegnuto.
  */
 .kf-cue {
-  background: rgba(8, 9, 11, 0.78);
+  background: rgba(8, 9, 11, var(--kf-cc-bg, 0.78));
   color: var(--kf-ink);
   line-height: 1.35;
   padding: 0.15em 0.5em;

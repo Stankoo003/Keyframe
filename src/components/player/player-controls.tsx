@@ -1,6 +1,13 @@
 "use client";
 
-import { CAPTION_SCALES, type CaptionScale } from "@/lib/caption-prefs";
+import {
+  CAPTION_BG_OPACITIES,
+  CAPTION_DELAY_MAX,
+  CAPTION_DELAY_MIN,
+  CAPTION_DELAY_STEP,
+  CAPTION_SCALES,
+  type CaptionPrefs,
+} from "@/lib/caption-prefs";
 import { formatTime } from "@/lib/format";
 
 import { PLAYBACK_RATES, SEEK_STEP_SECONDS } from "./constants";
@@ -11,9 +18,9 @@ import type { PlayerActions, PlayerState } from "./use-player";
  * o hls.js-u, engine-u ni <video> elementu (samo `import type`, koji se briše u
  * kompajlu). Zato se renderuje u testu sa lažnim propsima, bez pravog strima.
  *
- * Redosled u traci je iz zahteva, uz veličinu titlova odmah uz same titlove:
- *   play/pauza · nazad · napred · zvuk · vreme · titlovi · veličina · kvalitet ·
- *   brzina · fullscreen
+ * Redosled u traci je iz zahteva, uz podesavanja titlova odmah uz same titlove:
+ *   play/pauza · nazad · napred · zvuk · vreme · titlovi · podesavanja titlova ·
+ *   kvalitet · brzina · fullscreen
  *
  * Izgled je iz Claude Design fajla `KeyFrame Player.dc.html`: staza 4px, cyan
  * napredak, beo okrugli thumb sa oreolom, i pilule sa mono tekstom desno.
@@ -21,16 +28,16 @@ import type { PlayerActions, PlayerState } from "./use-player";
 export function PlayerControls({
   state,
   actions,
-  captionScale,
-  onCaptionScaleChange,
+  captionPrefs,
+  onCaptionPrefsChange,
   chapterStarts = [],
   currentChapter = -1,
 }: {
   state: PlayerState;
   actions: PlayerActions;
-  /** Mnozilac velicine titlova; vlasnik stanja je `PlayerSurface`. */
-  captionScale: CaptionScale;
-  onCaptionScaleChange: (scale: CaptionScale) => void;
+  /** Velicina, pozadina i pomeraj titlova; vlasnik stanja je `PlayerSurface`. */
+  captionPrefs: CaptionPrefs;
+  onCaptionPrefsChange: (patch: Partial<CaptionPrefs>) => void;
   /** Pocetci poglavlja u sekundama — crtice na traci. Prazno = ne crta se nista. */
   chapterStarts?: readonly number[];
   /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
@@ -172,7 +179,11 @@ export function PlayerControls({
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <CaptionsButton state={state} onToggle={actions.toggleCaptions} />
 
-          <CaptionScaleSelect state={state} value={captionScale} onChange={onCaptionScaleChange} />
+          <CaptionCustomizeButton
+            state={state}
+            prefs={captionPrefs}
+            onChange={onCaptionPrefsChange}
+          />
 
           <QualitySelect state={state} onSelect={actions.selectLevel} />
 
@@ -301,42 +312,120 @@ function CaptionsButton({ state, onToggle }: { state: PlayerState; onToggle: () 
 }
 
 /**
- * Velicina titlova.
+ * Podesavanja titlova: velicina, providnost pozadine i pomeraj (delay).
  *
- * Ime je "Veličina titlova", a ne "Titlovi …" — citac ekrana tako izgovori
- * "Veličina titlova, 130%", sto je jednoznacno naspram dugmeta "Titlovi".
+ * `<details>` umesto rucno vodjenog `open` stanja — browser vec zna da zatvori
+ * panel na Escape i da ga otvori/zatvori na klik na `<summary>`, bez ijedne
+ * linije JS-a i bez rizika da se stanje raziđe sa DOM-om.
  *
- * ONEMOGUCENO kad snimak nema staze, iz istog razloga kao samo dugme: podesavanje
- * velicine nepostojecih titlova je tacno ona prazna kontrola koja ne radi nista.
- * Onemogucen <select> uz to ispada iz tab redosleda, pa se broj stanica pri
- * tabovanju na takvom snimku uopste ne menja.
+ * ONEMOGUCENO kad snimak nema staze, iz istog razloga kao `CaptionsButton`:
+ * podesavanje nepostojecih titlova je prazna kontrola koja ne radi nista, a
+ * onemoguceni element ispada iz tab redosleda.
  *
- * NIJE onemoguceno kad titlovi postoje ali su ugaseni — treperilo bi na svaki
- * CC toggle i otimalo fokus, a velicinu je legitimno podesiti i pre paljenja.
+ * NIJE onemoguceno kad titlovi postoje ali su ugaseni — podesiti ih je
+ * legitimno i pre nego sto se upale.
  */
-function CaptionScaleSelect({
+function CaptionCustomizeButton({
   state,
-  value,
+  prefs,
   onChange,
 }: {
   state: PlayerState;
-  value: CaptionScale;
-  onChange: (scale: CaptionScale) => void;
+  prefs: CaptionPrefs;
+  onChange: (patch: Partial<CaptionPrefs>) => void;
 }) {
+  const disabled = state.textTracks.length === 0;
+
   return (
-    <select
-      aria-label="Veličina titlova"
-      title="Veličina titlova"
-      disabled={state.textTracks.length === 0}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value) as CaptionScale)}
-      className={`${PILL} disabled:opacity-40`}
-    >
-      {CAPTION_SCALES.map((scale) => (
-        <option key={scale} value={scale}>
-          {Math.round(scale * 100)}%
-        </option>
-      ))}
-    </select>
+    <details className="group relative" {...(disabled ? { inert: true } : {})}>
+      <summary
+        aria-label="Podešavanja titlova"
+        title="Podešavanja titlova"
+        className={`${PILL} list-none disabled:opacity-40 [&::-webkit-details-marker]:hidden ${disabled ? "pointer-events-none opacity-40" : ""}`}
+      >
+        Titlovi ⚙
+      </summary>
+
+      <div
+        className="border-kf-line-strong bg-kf-surface rounded-kf-card absolute right-0 bottom-full z-20 mb-2 flex w-56 flex-col gap-3 border p-3 text-xs shadow-lg"
+        // Klik unutar panela ne sme da zatvori <details> preko klika na
+        // pozadinu plejera — ovde nema takvog handlera, ali stopPropagation
+        // sprečava da tastaturne prečice plejera (npr. "c") pokupe unos.
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        <CaptionPrefRow label="Veličina">
+          <select
+            aria-label="Veličina titlova"
+            value={prefs.scale}
+            onChange={(event) => onChange({ scale: Number(event.target.value) as CaptionPrefs["scale"] })}
+            className={PILL_SMALL}
+          >
+            {CAPTION_SCALES.map((scale) => (
+              <option key={scale} value={scale}>
+                {Math.round(scale * 100)}%
+              </option>
+            ))}
+          </select>
+        </CaptionPrefRow>
+
+        <CaptionPrefRow label="Pozadina">
+          <select
+            aria-label="Providnost pozadine titlova"
+            value={prefs.bgOpacity}
+            onChange={(event) =>
+              onChange({ bgOpacity: Number(event.target.value) as CaptionPrefs["bgOpacity"] })
+            }
+            className={PILL_SMALL}
+          >
+            {CAPTION_BG_OPACITIES.map((opacity) => (
+              <option key={opacity} value={opacity}>
+                {opacity === 0 ? "Bez pozadine" : `${Math.round(opacity * 100)}%`}
+              </option>
+            ))}
+          </select>
+        </CaptionPrefRow>
+
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-kf-ink3">Pomeraj</span>
+            <span className="text-kf-ink3 font-mono tabular-nums">
+              {prefs.delaySeconds === 0
+                ? "0 s"
+                : `${prefs.delaySeconds > 0 ? "+" : ""}${prefs.delaySeconds.toFixed(1)} s`}
+            </span>
+          </div>
+          <input
+            type="range"
+            aria-label="Vremenski pomeraj titlova"
+            aria-valuetext={
+              prefs.delaySeconds === 0
+                ? "0 sekundi"
+                : `${prefs.delaySeconds > 0 ? "plus" : "minus"} ${Math.abs(prefs.delaySeconds).toFixed(1)} sekundi`
+            }
+            min={CAPTION_DELAY_MIN}
+            max={CAPTION_DELAY_MAX}
+            step={CAPTION_DELAY_STEP}
+            value={prefs.delaySeconds}
+            onChange={(event) => onChange({ delaySeconds: Number(event.target.value) })}
+            className="kf-range kf-range-sm h-1 w-full rounded-xs bg-white/18"
+          />
+        </div>
+      </div>
+    </details>
   );
 }
+
+/** Jedan red u panelu za podesavanja titlova: labela levo, kontrola desno. */
+function CaptionPrefRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center justify-between gap-2">
+      <span className="text-kf-ink3">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/** Manja pilula za select-ove UNUTAR panela — puna PILL je preširoka na 224px. */
+const PILL_SMALL =
+  "bg-kf-fill border-kf-line-strong text-kf-ink3 cursor-pointer rounded-md border px-1.5 py-1 font-mono text-[11px] leading-none " +
+  FOCUS_RING;
