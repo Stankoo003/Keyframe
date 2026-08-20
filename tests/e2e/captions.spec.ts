@@ -8,6 +8,9 @@ import { expect, test, type Page } from "@playwright/test";
  * cue-ovi POKLOPLJENI sa zvukom, a ne samo da je staza ukljucena.
  */
 const CUE = { atSeconds: 30, contains: "incredible mission" };
+/** Poslednji cue u fajlu (~8:20) — dokaz da sinhronizacija ne zavisi od toga
+ *  koliko je cue-ova staza vec prosla, ne samo prvog. */
+const LATE_CUE = { atSeconds: 500, contains: "see you in the next video" };
 
 /** Sacekaj da metapodaci stignu — pre toga je `duration` 0 i seek ne radi. */
 async function waitForMetadata(page: Page): Promise<void> {
@@ -55,7 +58,9 @@ test("CC dugme pali i gasi titlove", async ({ page }) => {
 
   await cc.click();
   await expect(cc).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator("[data-captions]")).toHaveAttribute("data-captions", "off");
+  // Ugaseni titlovi NEMAJU kontejner uopste, ne samo prazan — vidi
+  // caption-overlay.tsx.
+  await expect(page.locator("[data-captions]")).toHaveCount(0);
   await expect(page.locator(".kf-cue")).toHaveCount(0);
 });
 
@@ -81,6 +86,17 @@ test("cue se prikazuje na svom vremenu", async ({ page }) => {
   // Tvrdnja je nad VIDLJIVIM DOM-om: `activeCues` bi dokazao samo da je staza
   // obrađena, a ne da se išta nacrtalo.
   await expect(page.locator("[data-captions]")).toContainText(CUE.contains);
+});
+
+test("cue kasno u dugom fajlu je i dalje sinhronizovan", async ({ page }) => {
+  await (await enabledCaptionButton(page)).click();
+
+  await page.evaluate((at) => {
+    const video = document.querySelector("video");
+    if (video) video.currentTime = at;
+  }, LATE_CUE.atSeconds);
+
+  await expect(page.locator("[data-captions]")).toContainText(LATE_CUE.contains);
 });
 
 test("prečica C radi isto što i dugme", async ({ page }) => {

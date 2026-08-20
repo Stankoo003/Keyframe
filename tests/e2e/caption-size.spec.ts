@@ -28,7 +28,7 @@ async function showCaptionsAtCue(page: Page): Promise<void> {
   }, CUE_AT_SECONDS);
 }
 
-test("veličina menja iscrtane titlove i pamti se", async ({ page }) => {
+test("veličina fonta menja iscrtane titlove i pamti se", async ({ page }) => {
   await showCaptionsAtCue(page);
 
   const cue = page.locator(".kf-cue").first();
@@ -37,16 +37,22 @@ test("veličina menja iscrtane titlove i pamti se", async ({ page }) => {
   const fontSize = () => cue.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   const before = await fontSize();
 
-  await page.getByRole("combobox", { name: "Veličina titlova" }).selectOption("1.6");
+  await page.getByRole("button", { name: "Podešavanja titlova" }).click();
+  const sizeSlider = page.getByRole("slider", { name: "Veličina fonta titlova" });
+  await sizeSlider.focus();
+  await sizeSlider.press("End"); // skoči na maksimum (200%)
 
   // Tvrdi se ODNOS, ne apsolutan broj: apsolutna veličina zavisi od širine
   // viewport-a Playwright profila, pa bi tvrd broj bio krt.
   await expect.poll(fontSize).toBeGreaterThan(before * 1.4);
 
+  await page.getByRole("button", { name: "Zatvori" }).click();
+
   // Veličina titlova je podešavanje pristupačnosti — mora preživeti osvežavanje.
   await page.reload();
   await waitForMetadata(page);
-  await expect(page.getByRole("combobox", { name: "Veličina titlova" })).toHaveValue("1.6");
+  await page.getByRole("button", { name: "Podešavanja titlova" }).click();
+  await expect(page.getByRole("slider", { name: "Veličina fonta titlova" })).toHaveValue("200");
 });
 
 /**

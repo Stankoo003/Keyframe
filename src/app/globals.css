@@ -198,30 +198,44 @@ body {
  * Titlovi. Crtamo ih SAMI (components/player/caption-overlay.tsx), pa `::cue`
  * ovde vise nema sta da radi — nijedna staza nikad nije "showing".
  *
+ * Boja, pozadina, font i velicina dolaze kao inline stil PO CUE-u (korisnikova
+ * podesavanja iz caption-prefs.ts) — ova klasa nosi samo ono sto se NE menja:
+ * razmak, oblik kutije i fallback velicina za browsere bez `cqi` podrske.
+ *
  * `cqi` je 1% inline velicine sloja sa titlovima, a taj sloj se poklapa sa
  * slikom. Zato titlovi rastu i sa plejerom i sa fullscreen-om, bez ijedne
  * linije JS-a. `vw` bi pratio PROZOR, pa bi plejer od 640px u prozoru od
- * 1800px dobio pogresnu velicinu; `ResizeObserver` bi uveo re-render na svaki
- * piksel promene sirine.
- *
- * Mnozilac stoji IZVAN clamp-a: gornja granica cuva podrazumevani izgled na 4K
- * ekranu, ali ne sme da ponisti korisnikov izbor "160%".
+ * 1800px dobio pogresnu velicinu.
  *
  * Padding i radijus su u `em` da kutija raste zajedno sa slovima — u `px` bi na
  * najvecoj velicini izgledala stegnuto.
  */
 .kf-cue {
-  background: rgba(8, 9, 11, var(--kf-cc-bg, 0.78));
-  color: var(--kf-ink);
   line-height: 1.35;
   padding: 0.15em 0.5em;
   border-radius: 0.2em;
   text-align: center;
   text-wrap: balance;
-  /* Rezerva za browsere bez container query jedinica — deklaracija ispod se
-     tada odbaci, pa ostaje ova. */
+  /* Rezerva za browsere bez container query jedinica ili bez podrske za
+     inline `calc(... cqi ...)` — inline stil se u tom slucaju odbaci i
+     ostaje ova deklaracija. */
   font-size: clamp(15px, 3.2vw, 30px);
-  font-size: calc(clamp(15px, 2.6cqi, 56px) * var(--kf-cc-scale, 1));
+}
+
+/*
+ * Stil ivice teksta — YouTube/Netflix nude tacno ova tri: bez ivice, senka,
+ * kontura. Odvojeno od `background` (koji je kutija ISPOD teksta): ivica crta
+ * OKO samih slova i ostaje citljiva i kad je pozadina potpuno providna.
+ */
+.kf-cue[data-edge="shadow"] {
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.kf-cue[data-edge="outline"] {
+  -webkit-text-stroke: 0.05em rgba(0, 0, 0, 0.9);
+  paint-order: stroke fill;
 }
 
 @keyframes kf-pulse {

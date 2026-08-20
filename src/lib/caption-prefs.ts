@@ -1,10 +1,11 @@
 /**
- * Podesavanja titlova u `localStorage`.
+ * Podesavanja izgleda titlova u `localStorage`.
  *
  * Zaseban kljuc od `playback-progress`, iako oba pamte korisnikovo stanje:
  * pozicija gledanja je PO SNIMKU i sme da ispadne kad mapa naraste preko svog
- * ogranicenja, a podesavanja titlova su JEDNO globalno podesavanje pristupacnosti
- * koje ne sme da nestane zato sto je korisnik odgledao pedeset snimaka.
+ * ogranicenja, a izgled titlova je JEDNO globalno podesavanje pristupacnosti
+ * koje ne sme da nestane zato sto je korisnik odgledao pedeset snimaka, i vazi
+ * za SVAKI snimak podjednako.
  * Razlicit zivotni vek → razlicit kljuc → razlicit modul.
  *
  * SVE JE U try/catch, iz istih razloga kao tamo: Safari u privatnom rezimu baca
@@ -13,49 +14,67 @@
  * padne.
  */
 
-const STORAGE_KEY = "keyframe:captions:v1";
+const STORAGE_KEY = "keyframe:captions:v2";
 
-/** Ponudjene velicine, kao mnozilac osnovne (vidi `.kf-cue` u globals.css). */
-export const CAPTION_SCALES = [0.85, 1, 1.3, 1.6] as const;
-export type CaptionScale = (typeof CAPTION_SCALES)[number];
-export const DEFAULT_CAPTION_SCALE: CaptionScale = 1;
+export const CAPTION_FONT_SIZE_MIN = 50;
+export const CAPTION_FONT_SIZE_MAX = 200;
+export const CAPTION_FONT_SIZE_STEP = 10;
+export const DEFAULT_CAPTION_FONT_SIZE_PCT = 100;
 
-/** Providnost pozadine iza teksta — 0 je bez pozadine, 1 je puna crna podloga. */
-export const CAPTION_BG_OPACITIES = [0, 0.4, 0.78, 1] as const;
-export type CaptionBgOpacity = (typeof CAPTION_BG_OPACITIES)[number];
-export const DEFAULT_CAPTION_BG_OPACITY: CaptionBgOpacity = 0.78;
+export const CAPTION_FONT_FAMILIES = ["sans", "serif", "mono"] as const;
+export type CaptionFontFamily = (typeof CAPTION_FONT_FAMILIES)[number];
+export const DEFAULT_CAPTION_FONT_FAMILY: CaptionFontFamily = "sans";
 
-/**
- * Pomeraj titlova u sekundama — pozitivno ih kasni, negativno ih ubrzava.
- *
- * Kontinualan (slider), ne fiksan skup kao velicina/pozadina — sinhronizacija
- * je precizan zadatak i korisniku treba korak od 0.1s, ne samo par preseta.
- */
+export const CAPTION_EDGE_STYLES = ["none", "shadow", "outline"] as const;
+export type CaptionEdgeStyle = (typeof CAPTION_EDGE_STYLES)[number];
+export const DEFAULT_CAPTION_EDGE_STYLE: CaptionEdgeStyle = "shadow";
+
+/** Procenat visine slike, od dna — koliko titl "lebdi" iznad donje ivice. */
+export const CAPTION_POSITION_MIN = 0;
+export const CAPTION_POSITION_MAX = 40;
+export const CAPTION_POSITION_STEP = 1;
+export const DEFAULT_CAPTION_POSITION_PCT = 8;
+
+export const CAPTION_OPACITY_MIN = 0;
+export const CAPTION_OPACITY_MAX = 1;
+export const CAPTION_OPACITY_STEP = 0.05;
+export const DEFAULT_CAPTION_TEXT_OPACITY = 1;
+export const DEFAULT_CAPTION_BG_OPACITY = 0.75;
+
+export const DEFAULT_CAPTION_TEXT_COLOR = "#ffffff";
+export const DEFAULT_CAPTION_BG_COLOR = "#000000";
+
+/** Pomeraj titlova u sekundama — pozitivno ih kasni, negativno ih ubrzava. */
 export const CAPTION_DELAY_MIN = -5;
 export const CAPTION_DELAY_MAX = 5;
 export const CAPTION_DELAY_STEP = 0.1;
-export type CaptionDelay = number;
-export const DEFAULT_CAPTION_DELAY: CaptionDelay = 0;
-
-function clampCaptionDelay(value: number): CaptionDelay {
-  // Zaokruzi na korak da plutajuca tacka ne nakupi npr. 0.1 + 0.1 = 0.20000000000000004.
-  const stepped = Math.round(value / CAPTION_DELAY_STEP) * CAPTION_DELAY_STEP;
-  return Math.min(CAPTION_DELAY_MAX, Math.max(CAPTION_DELAY_MIN, Math.round(stepped * 10) / 10));
-}
+export const DEFAULT_CAPTION_DELAY = 0;
 
 /**
- * Sve je u jednom objektu, ne u tri zasebna kljuca — jedno citanje/upis pri
- * svakoj promeni, i jedan mesto za buduce polje (npr. font) bez v2 migracije.
+ * Sve je u jednom objektu, ne u zasebnim kljucevima — jedno citanje/upis pri
+ * svakoj promeni, i jedno mesto za buduce polje bez v3 migracije.
  */
 export type CaptionPrefs = {
-  scale: CaptionScale;
-  bgOpacity: CaptionBgOpacity;
-  delaySeconds: CaptionDelay;
+  fontSizePct: number;
+  fontFamily: CaptionFontFamily;
+  textColor: string;
+  textOpacity: number;
+  bgColor: string;
+  bgOpacity: number;
+  edgeStyle: CaptionEdgeStyle;
+  positionPct: number;
+  delaySeconds: number;
 };
 
 export const DEFAULT_CAPTION_PREFS: CaptionPrefs = {
-  scale: DEFAULT_CAPTION_SCALE,
+  fontSizePct: DEFAULT_CAPTION_FONT_SIZE_PCT,
+  fontFamily: DEFAULT_CAPTION_FONT_FAMILY,
+  textColor: DEFAULT_CAPTION_TEXT_COLOR,
+  textOpacity: DEFAULT_CAPTION_TEXT_OPACITY,
+  bgColor: DEFAULT_CAPTION_BG_COLOR,
   bgOpacity: DEFAULT_CAPTION_BG_OPACITY,
+  edgeStyle: DEFAULT_CAPTION_EDGE_STYLE,
+  positionPct: DEFAULT_CAPTION_POSITION_PCT,
   delaySeconds: DEFAULT_CAPTION_DELAY,
 };
 
@@ -63,12 +82,27 @@ function isOneOf<T>(values: readonly T[], value: unknown): value is T {
   return values.includes(value as T);
 }
 
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+function clampNumericPref(value: unknown, min: number, max: number, step: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  // Zaokruzi na korak da plutajuca tacka ne nakupi npr. 0.1 + 0.1 = 0.20000000000000004.
+  const stepped = Math.round(value / step) * step;
+  const rounded = Math.round(stepped * 1000) / 1000;
+  return Math.min(max, Math.max(min, rounded));
+}
+
+function sanitizeHexColor(value: unknown, fallback: string): string {
+  return typeof value === "string" && HEX_COLOR_RE.test(value) ? value.toLowerCase() : fallback;
+}
+
 /**
  * Vraca sacuvana podesavanja, popunjena podrazumevanim vrednostima za sve sto
  * fali ili nije u redu.
  *
- * Prihvata SAMO vrednosti koje UI zaista nudi. Rucno prepravljen storage ili
- * stariji build ne smeju da daju titlove od 500% preko cele slike.
+ * Prihvata SAMO vrednosti u granicama koje UI zaista nudi. Rucno prepravljen
+ * storage ili stariji build ne smeju da daju titlove van ekrana ili u boji
+ * koja nije validan CSS.
  */
 export function readCaptionPrefs(): CaptionPrefs {
   if (typeof window === "undefined") return DEFAULT_CAPTION_PREFS;
@@ -80,11 +114,47 @@ export function readCaptionPrefs(): CaptionPrefs {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return DEFAULT_CAPTION_PREFS;
 
-    const { scale, bgOpacity, delaySeconds } = parsed as Partial<CaptionPrefs>;
+    const p = parsed as Partial<CaptionPrefs>;
     return {
-      scale: isOneOf(CAPTION_SCALES, scale) ? scale : DEFAULT_CAPTION_SCALE,
-      bgOpacity: isOneOf(CAPTION_BG_OPACITIES, bgOpacity) ? bgOpacity : DEFAULT_CAPTION_BG_OPACITY,
-      delaySeconds: typeof delaySeconds === "number" ? clampCaptionDelay(delaySeconds) : DEFAULT_CAPTION_DELAY,
+      fontSizePct: clampNumericPref(
+        p.fontSizePct,
+        CAPTION_FONT_SIZE_MIN,
+        CAPTION_FONT_SIZE_MAX,
+        CAPTION_FONT_SIZE_STEP,
+        DEFAULT_CAPTION_FONT_SIZE_PCT,
+      ),
+      fontFamily: isOneOf(CAPTION_FONT_FAMILIES, p.fontFamily) ? p.fontFamily : DEFAULT_CAPTION_FONT_FAMILY,
+      textColor: sanitizeHexColor(p.textColor, DEFAULT_CAPTION_TEXT_COLOR),
+      textOpacity: clampNumericPref(
+        p.textOpacity,
+        CAPTION_OPACITY_MIN,
+        CAPTION_OPACITY_MAX,
+        CAPTION_OPACITY_STEP,
+        DEFAULT_CAPTION_TEXT_OPACITY,
+      ),
+      bgColor: sanitizeHexColor(p.bgColor, DEFAULT_CAPTION_BG_COLOR),
+      bgOpacity: clampNumericPref(
+        p.bgOpacity,
+        CAPTION_OPACITY_MIN,
+        CAPTION_OPACITY_MAX,
+        CAPTION_OPACITY_STEP,
+        DEFAULT_CAPTION_BG_OPACITY,
+      ),
+      edgeStyle: isOneOf(CAPTION_EDGE_STYLES, p.edgeStyle) ? p.edgeStyle : DEFAULT_CAPTION_EDGE_STYLE,
+      positionPct: clampNumericPref(
+        p.positionPct,
+        CAPTION_POSITION_MIN,
+        CAPTION_POSITION_MAX,
+        CAPTION_POSITION_STEP,
+        DEFAULT_CAPTION_POSITION_PCT,
+      ),
+      delaySeconds: clampNumericPref(
+        p.delaySeconds,
+        CAPTION_DELAY_MIN,
+        CAPTION_DELAY_MAX,
+        CAPTION_DELAY_STEP,
+        DEFAULT_CAPTION_DELAY,
+      ),
     };
   } catch {
     // Neispravan JSON ili nedostupan storage — ponasaj se kao da nema zapisa.
@@ -92,16 +162,62 @@ export function readCaptionPrefs(): CaptionPrefs {
   }
 }
 
-/** Delimicna izmena — spaja se preko poslednjeg poznatog stanja. */
+/** Delimicna izmena — spaja se preko poslednjeg poznatog stanja, pa se validira. */
 export function saveCaptionPrefs(patch: Partial<CaptionPrefs>): void {
-  const next = {
-    ...getCaptionPrefsSnapshot(),
-    ...patch,
-    ...(patch.delaySeconds !== undefined
-      ? { delaySeconds: clampCaptionDelay(patch.delaySeconds) }
-      : {}),
+  const merged = { ...getCaptionPrefsSnapshot(), ...patch };
+  const next: CaptionPrefs = {
+    fontSizePct: clampNumericPref(
+      merged.fontSizePct,
+      CAPTION_FONT_SIZE_MIN,
+      CAPTION_FONT_SIZE_MAX,
+      CAPTION_FONT_SIZE_STEP,
+      DEFAULT_CAPTION_FONT_SIZE_PCT,
+    ),
+    fontFamily: isOneOf(CAPTION_FONT_FAMILIES, merged.fontFamily)
+      ? merged.fontFamily
+      : DEFAULT_CAPTION_FONT_FAMILY,
+    textColor: sanitizeHexColor(merged.textColor, DEFAULT_CAPTION_TEXT_COLOR),
+    textOpacity: clampNumericPref(
+      merged.textOpacity,
+      CAPTION_OPACITY_MIN,
+      CAPTION_OPACITY_MAX,
+      CAPTION_OPACITY_STEP,
+      DEFAULT_CAPTION_TEXT_OPACITY,
+    ),
+    bgColor: sanitizeHexColor(merged.bgColor, DEFAULT_CAPTION_BG_COLOR),
+    bgOpacity: clampNumericPref(
+      merged.bgOpacity,
+      CAPTION_OPACITY_MIN,
+      CAPTION_OPACITY_MAX,
+      CAPTION_OPACITY_STEP,
+      DEFAULT_CAPTION_BG_OPACITY,
+    ),
+    edgeStyle: isOneOf(CAPTION_EDGE_STYLES, merged.edgeStyle) ? merged.edgeStyle : DEFAULT_CAPTION_EDGE_STYLE,
+    positionPct: clampNumericPref(
+      merged.positionPct,
+      CAPTION_POSITION_MIN,
+      CAPTION_POSITION_MAX,
+      CAPTION_POSITION_STEP,
+      DEFAULT_CAPTION_POSITION_PCT,
+    ),
+    delaySeconds: clampNumericPref(
+      merged.delaySeconds,
+      CAPTION_DELAY_MIN,
+      CAPTION_DELAY_MAX,
+      CAPTION_DELAY_STEP,
+      DEFAULT_CAPTION_DELAY,
+    ),
   };
 
+  persist(next);
+}
+
+/** Vraca sve na podrazumevano, u jednom upisu. */
+export function resetCaptionPrefs(): void {
+  persist(DEFAULT_CAPTION_PREFS);
+}
+
+function persist(next: CaptionPrefs): void {
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -132,7 +248,7 @@ export function subscribeCaptionPrefs(listener: () => void): () => void {
   listeners.add(listener);
 
   // `storage` se okida SAMO u drugim tabovima, ne u onom koji je pisao — zato
-  // `saveCaptionPrefs` iznad obavestava lokalne slusaoce sam.
+  // `persist` iznad obavestava lokalne slusaoce sam.
   const onStorage = (event: StorageEvent) => {
     if (event.key !== null && event.key !== STORAGE_KEY) return;
     cached = null;

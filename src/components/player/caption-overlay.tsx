@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
-import type { CaptionBgOpacity, CaptionScale } from "@/lib/caption-prefs";
+import type { CaptionFontFamily, CaptionPrefs } from "@/lib/caption-prefs";
 
 import { readTextTracks } from "./text-tracks";
 
@@ -10,8 +10,9 @@ import { readTextTracks } from "./text-tracks";
  * Titlovi koje crtamo SAMI, umesto da ih prepustimo browseru.
  *
  * Zasto uopste: cue kutija koju crta browser zivi u UA shadow stablu <video>
- * elementa, gde nemamo ni layout ni stacking kontrolu. To je pravilo dva
- * konkretna kvara:
+ * elementa, gde nemamo ni layout ni stacking kontrolu, ni moc da promenimo
+ * font, boju ili poziciju preko onoga sto `::cue` dozvoljava — a taj skup je
+ * i sam nedosledan izmedju browsera. To je pravilo dva konkretna kvara:
  *
  *  1. U desktop Safariju titlovi NESTANU u fullscreen-u. Fullscreen trazimo nad
  *     kontejner divom, a cue kutija ostaje u shadow stablu videa. Koji je tacno
@@ -20,25 +21,21 @@ import { readTextTracks } from "./text-tracks";
  *     kutiju, po konstrukciji. Uklanja se cela klasa kvarova, ne pogodjena
  *     hipoteza.
  *  2. `::cue { font-size }` u Safariju nadjacaju sistemska podesavanja titlova,
- *     pa se velicina nativno ne bi mogla ponuditi uopste.
+ *     pa se velicina/boja/pozadina nativno ne bi mogle ponuditi uopste.
  *
- * Cena: WebVTT tagovi (<i>, <v Govornik>) se skidaju i renderuje se cist tekst.
- * Nas .vtt nema nijedan; skidanje je odbrambeno (vidi `cueLines`).
+ * Parsiranje ostaje BESPLATNO: staza je "hidden" (vidi use-player.ts), pa
+ * browser i dalje parsira .vtt i puni `activeCues` — mi samo preuzimamo
+ * iscrtavanje onoga sto browser vec izracuna.
  */
 export function CaptionOverlay({
   videoRef,
   activeTextTrack,
-  scale,
-  bgOpacity,
-  delaySeconds,
+  prefs,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   /** Indeks ukljucene staze, ili -1 kad su titlovi ugaseni. */
   activeTextTrack: number;
-  scale: CaptionScale;
-  bgOpacity: CaptionBgOpacity;
-  /** Pomeraj u sekundama; pozitivno kasni titlove, negativno ih ubrzava. */
-  delaySeconds: number;
+  prefs: CaptionPrefs;
 }) {
   const [lines, setLines] = useState<string[]>([]);
   const visible = activeTextTrack >= 0;
@@ -55,7 +52,7 @@ export function CaptionOverlay({
 
   useEffect(() => {
     const video = videoRef.current;
-    // Ugasene titlove ne pratimo uopste — `lines` se ne renderuje (vidi `visible`
+    // Ugasene titlove ne pratimo uopste — linije se ne renderuju (vidi `visible`
     // nize), pa ustajala vrednost ne smeta, a `attach` je odmah osvezi kad se
     // titlovi ponovo upale.
     if (!video || activeTextTrack < 0) return;
@@ -76,15 +73,19 @@ export function CaptionOverlay({
           original = { start: cue.startTime, end: cue.endTime };
           originalsRef.current.set(cue, original);
         }
-        cue.startTime = original.start + delaySeconds;
-        cue.endTime = original.end + delaySeconds;
+        cue.startTime = original.start + prefs.delaySeconds;
+        cue.endTime = original.end + prefs.delaySeconds;
       }
     };
 
+    // KLJUCNO za sinhronizaciju kasno u dugom fajlu: citamo `activeCues` sa
+    // STAZE preko `cuechange`, ne sopstveni tajmer nad `currentTime`. Staza
+    // sama racuna aktivne cue-ove iz svog (vec ucitanog) niza, pa tacnost ne
+    // zavisi od toga koliko je fajl dug ili koliko je cue-ova prosleo.
     const sync = () => {
       setLines(
         Array.from(track?.activeCues ?? []).flatMap((cue) =>
-          "text" in cue && typeof cue.text === "string" ? cueLines(cue.text) : [],
+          "text" in cue && typeof cue.text === "string" ? splitCueLines(cue.text) : [],
         ),
       );
     };
@@ -136,7 +137,14 @@ export function CaptionOverlay({
     };
     // `delaySeconds` je namerno u zavisnostima: promena ponovo pokrece attach,
     // sto ponovo primeni pomeraj na sve trenutne cue-ove preko `applyDelay`.
-  }, [activeTextTrack, videoRef, delaySeconds]);
+  }, [activeTextTrack, videoRef, prefs.delaySeconds]);
+
+  // Titlovi ugaseni → NEMA kontejnera uopste, ne samo praznog. Prazan
+  // `pointer-events-none` sloj preko cele slike je bezopasan, ali test i
+  // ugovor trazu doslovno odsustvo cvora — najjednostavnije je ne lagati DOM.
+  if (!visible) return null;
+
+  const heightPct = prefs.positionPct * VIDEO_ASPECT_HEIGHT_OVER_WIDTH;
 
   return (
     /*
@@ -156,7 +164,8 @@ export function CaptionOverlay({
      * povlaci `contain: layout`, sto pravi novi stacking context — na kontejneru
      * bi to promenilo kako se plejer slaze naspram sticky header-a. Ovako je
      * containment zatvoren u kutiju u kojoj se nista drugo ne desava, a `1cqi`
-     * je 1% sirine slike.
+     * je 1% sirine slike. `positionPct` je procenat VISINE, pa se mnozi sa
+     * `VIDEO_ASPECT_HEIGHT_OVER_WIDTH` (9/16) da se izrazi u `cqi` bez merenja.
      *
      * BEZ `aria-live` — bio bi monolog, protiv pravila iz use-announcer.ts.
      * BEZ `aria-hidden` — tekst ostaje u stablu pristupacnosti, isto kao sto to
@@ -164,20 +173,46 @@ export function CaptionOverlay({
      * napisana.
      */
     <div
-      data-captions={visible ? "on" : "off"}
-      style={{ "--kf-cc-scale": scale, "--kf-cc-bg": bgOpacity } as React.CSSProperties}
-      className="@container pointer-events-none absolute inset-x-0 top-0 z-10 flex aspect-video flex-col items-center justify-end gap-1 px-[6%] pb-22"
+      data-captions="on"
+      style={{ paddingBottom: `${heightPct}cqi` }}
+      className="@container pointer-events-none absolute inset-x-0 top-0 z-10 flex aspect-video flex-col items-center justify-end gap-1 px-[6%]"
     >
-      {visible &&
-        lines.map((line, index) => (
-          // Indeks kao kljuc je ovde ispravan: redovi nemaju identitet, lista se
-          // menja u celosti i nikad se ne preuredjuje.
-          <p key={index} className="kf-cue">
-            {line}
-          </p>
-        ))}
+      {lines.map((line, index) => (
+        // Indeks kao kljuc je ovde ispravan: redovi nemaju identitet, lista se
+        // menja u celosti i nikad se ne preuredjuje.
+        <p
+          key={index}
+          data-edge={prefs.edgeStyle}
+          className="kf-cue"
+          style={{
+            fontSize: `calc(clamp(15px, 2.6cqi, 56px) * ${prefs.fontSizePct / 100})`,
+            fontFamily: FONT_FAMILY_STACKS[prefs.fontFamily],
+            color: hexToRgba(prefs.textColor, prefs.textOpacity),
+            background: hexToRgba(prefs.bgColor, prefs.bgOpacity),
+          }}
+        >
+          {renderCueMarkup(line)}
+        </p>
+      ))}
     </div>
   );
+}
+
+/** Visina/sirina video kutije (16:9) — pretvara procenat visine u `cqi`. */
+const VIDEO_ASPECT_HEIGHT_OVER_WIDTH = 9 / 16;
+
+const FONT_FAMILY_STACKS: Record<CaptionFontFamily, string> = {
+  sans: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+  serif: "ui-serif, Georgia, 'Times New Roman', serif",
+  mono: "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
+};
+
+/** `#rrggbb` + providnost [0,1] → `rgba(...)`, jedini oblik boje koji CSS trazi. */
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 /** WebVTT poznaje tacno ovih sest entiteta — ne treba pun HTML dekoder. */
@@ -185,30 +220,76 @@ const VTT_ENTITIES: Record<string, string> = {
   "&amp;": "&",
   "&lt;": "<",
   "&gt;": ">",
-  "&nbsp;": " ",
+  "&nbsp;": " ",
   "&lrm;": "‎",
   "&rlm;": "‏",
 };
 
-/**
- * Cue tekst → redovi obicnog teksta.
- *
- * Namerno NE koristi `cue.getCueAsHTML()`: on prelome reda pretvara u <br>
- * elemente ciji je `textContent` prazan string, pa bi citanje fragmenta spojilo
- * dva reda bez razmaka. Uz to bi ubacivanje DocumentFragment-a u React trazilo
- * `ref` + `replaceChildren`, cime taj cvor ispada iz reconciliation-a.
- *
- * Ovako izlaze obicni stringovi koje React renderuje kao tekstualne cvorove —
- * escape-ovanje radi React, `dangerouslySetInnerHTML` se nigde ne pojavljuje.
- */
-function cueLines(text: string): string[] {
+function decodeVttEntities(text: string): string {
+  return text.replace(/&(?:amp|lt|gt|nbsp|lrm|rlm);/g, (match) => VTT_ENTITIES[match] ?? match);
+}
+
+/** Cue tekst → redovi, bez skidanja markupa (vidi `renderCueMarkup`). */
+function splitCueLines(text: string): string[] {
   return text
     .split("\n")
-    .map((line) =>
-      line
-        .replace(/<[^>]*>/g, "")
-        .replace(/&(?:amp|lt|gt|nbsp|lrm|rlm);/g, (match) => VTT_ENTITIES[match] ?? match)
-        .trim(),
-    )
+    .map((line) => line.trim())
     .filter((line) => line.length > 0);
+}
+
+/** Bilo koji tag OSIM <i>/<b> (npr. <v Govornik>, <c>) — nepodrzan, izbaci se. */
+const UNSUPPORTED_TAG_RE = /<\/?(?!(?:i|b)(?:[\s>]|$))[a-z][^>]*>/gi;
+
+const IB_TAG_RE = /<(\/?)(i|b)>/gi;
+
+type CueSegment = string | { tag: "i" | "b"; children: CueSegment[] };
+
+/**
+ * Cue red → React cvorovi, uz podrzavanje `<i>` i `<b>` (kurziv/podebljano).
+ *
+ * Namerno NE koristi `cue.getCueAsHTML()`: on prelome reda pretvara u <br>
+ * elemente ciji je `textContent` prazan string, a fragment bi u React trazio
+ * `dangerouslySetInnerHTML` ili rucni `ref` + `replaceChildren`, cime taj cvor
+ * ispada iz reconciliation-a. Ovako se gradi mala stablo struktura i predaje
+ * Reactu kao obicni elementi — escape-ovanje teksta i dalje radi React sam.
+ */
+function renderCueMarkup(line: string): React.ReactNode {
+  const cleaned = line.replace(UNSUPPORTED_TAG_RE, "");
+  const root: CueSegment[] = [];
+  const stack: CueSegment[][] = [root];
+
+  let lastIndex = 0;
+  IB_TAG_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = IB_TAG_RE.exec(cleaned))) {
+    const [full, closing, tag] = match as unknown as [string, string, "i" | "b"];
+    const textBefore = cleaned.slice(lastIndex, match.index);
+    if (textBefore) stack[stack.length - 1]!.push(decodeVttEntities(textBefore));
+
+    if (closing) {
+      // Nepoklopljen zatvarajuci tag (npr. vec zatvoren cue koji prelazi
+      // preko granice reda) — ignorisan umesto da srusi ostatak parsiranja.
+      if (stack.length > 1) stack.pop();
+    } else {
+      const node: CueSegment = { tag: tag.toLowerCase() as "i" | "b", children: [] };
+      stack[stack.length - 1]!.push(node);
+      stack.push(node.children);
+    }
+
+    lastIndex = match.index + full.length;
+  }
+
+  const rest = cleaned.slice(lastIndex);
+  if (rest) stack[stack.length - 1]!.push(decodeVttEntities(rest));
+
+  return renderSegments(root);
+}
+
+function renderSegments(segments: CueSegment[]): React.ReactNode {
+  return segments.map((segment, index) => {
+    if (typeof segment === "string") return <Fragment key={index}>{segment}</Fragment>;
+    const Tag = segment.tag === "i" ? "em" : "strong";
+    return <Tag key={index}>{renderSegments(segment.children)}</Tag>;
+  });
 }

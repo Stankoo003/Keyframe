@@ -6,6 +6,7 @@ import type { SubtitleDto } from "@/domain/video";
 import {
   getCaptionPrefsServerSnapshot,
   getCaptionPrefsSnapshot,
+  resetCaptionPrefs,
   saveCaptionPrefs,
   subscribeCaptionPrefs,
   type CaptionPrefs,
@@ -13,6 +14,7 @@ import {
 import { formatTime } from "@/lib/format";
 
 import { CaptionOverlay } from "./caption-overlay";
+import { CaptionSettingsModal } from "./caption-settings-modal";
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
 import { PlayerControls } from "./player-controls";
 import { useAnnouncer, useAnnounceOnChange } from "./use-announcer";
@@ -71,6 +73,8 @@ export function PlayerSurface({
   );
   const [idle, setIdle] = useState(false);
   const [hasFocusWithin, setHasFocusWithin] = useState(false);
+  const [captionSettingsOpen, setCaptionSettingsOpen] = useState(false);
+  const captionSettingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { message: announcement, announce } = useAnnouncer();
 
@@ -94,36 +98,25 @@ export function PlayerSurface({
   );
 
   /**
-   * Objava ide ODAVDE, a ne kroz `useAnnounceOnChange` kao ostale.
+   * `saveCaptionPrefs`/`resetCaptionPrefs` sami obavestavaju pretplatnike, pa
+   * novo stanje stize nazad kroz `useSyncExternalStore` — nema drugog izvora
+   * istine, i nema potrebe za lokalnim `setState`.
    *
-   * Ostala stanja (brzina, zvuk, pauza) stizu iz vise izvora — dugme, precica,
-   * dogadjaj sa elementa — pa se moraju pratiti kroz stanje da se nijedan put ne
-   * propusti. Podesavanja titlova imaju tacno JEDAN izvor: ovaj handler.
-   *
-   * Uz to, pracenje kroz stanje bi objavilo i promenu koju efekat iznad napravi
-   * citajuci `localStorage` — pa bi plejer pri svakom ucitavanju stranice rekao
-   * "Veličina titlova 130%", objavu koju korisnik nije izazvao.
+   * BEZ `announce()` ovde, za razliku od ostalih kontrola: sve ovo su klizaci
+   * i color input-i unutar modala koji se aktivno prevlace, pa bi svaka
+   * promena zatrpala zivi region. Svaki kontrol u modalu nosi svoj
+   * `aria-label`/`aria-valuetext`, sto citacu ekrana vec daje trenutnu
+   * vrednost pri fokusu — isto pravilo kao klizac za zvuk.
    */
-  const onCaptionPrefsChange = useCallback(
-    (patch: Partial<CaptionPrefs>) => {
-      // `saveCaptionPrefs` sam obavestava pretplatnike, pa novo stanje stize
-      // nazad kroz `useSyncExternalStore` — nema drugog izvora istine.
-      saveCaptionPrefs(patch);
+  const onCaptionPrefsChange = useCallback((patch: Partial<CaptionPrefs>) => {
+    saveCaptionPrefs(patch);
+  }, []);
 
-      // Pomeraj namerno NE objavljuje: to je klizac koji se vuce, pa bi svaki
-      // korak od 0.1s zatrpao zivi region — isto pravilo kao klizac za zvuk,
-      // ciji `aria-valuetext` vec nosi tu informaciju bez `aria-live` spama.
-      if (patch.scale !== undefined) announce(`Veličina titlova ${Math.round(patch.scale * 100)}%`);
-      if (patch.bgOpacity !== undefined) {
-        announce(
-          patch.bgOpacity === 0
-            ? "Pozadina titlova isključena"
-            : `Pozadina titlova ${Math.round(patch.bgOpacity * 100)}%`,
-        );
-      }
-    },
-    [announce],
-  );
+  const onResetCaptionPrefs = useCallback(() => {
+    resetCaptionPrefs();
+  }, []);
+
+  const closeCaptionSettings = useCallback(() => setCaptionSettingsOpen(false), []);
 
   /**
    * Vidljivost se IZVODI, ne drži u zasebnom stanju: na pauzi su kontrole uvek
@@ -133,8 +126,12 @@ export function PlayerSurface({
    * `hasFocusWithin` je tu zbog pristupacnosti: kontrole se NIKAD ne gase dok je
    * fokus u njima. Bez toga bi korisniku tastature fokus ostao na dugmetu koje
    * se u medjuvremenu ugasilo, a `inert` ispod bi mu ga oteo.
+   *
+   * `captionSettingsOpen` je iz istog razloga: modal je van `inert` omotaca
+   * (portal je direktno dete kontejnera, vidi JSX ispod), pa bez ovoga bi se
+   * kontrole ispod njega mogle stopiti dok korisnik jos bira boju.
    */
-  const controlsVisible = !state.playing || !idle || hasFocusWithin;
+  const controlsVisible = !state.playing || !idle || hasFocusWithin || captionSettingsOpen;
 
   const scheduleHide = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -147,9 +144,10 @@ export function PlayerSurface({
     scheduleHide();
   }, [scheduleHide]);
 
-  // Odbrojavanje teče samo dok video svira; na pauzi se poništava.
+  // Odbrojavanje teče samo dok video svira i modal nije otvoren; u oba
+  // suprotna slucaja se poništava.
   useEffect(() => {
-    if (!state.playing) {
+    if (!state.playing || captionSettingsOpen) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       return;
     }
@@ -158,7 +156,7 @@ export function PlayerSurface({
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
-  }, [state.playing, scheduleHide]);
+  }, [state.playing, captionSettingsOpen, scheduleHide]);
 
   // Play/pause se izvodi iz stanja, a ne iz akcije — tako jedna objava pokriva
   // i dugme, i razmak, i klik na sliku, i ne moze da se razidje sa elementom.
@@ -313,9 +311,7 @@ export function PlayerSurface({
           <CaptionOverlay
             videoRef={videoRef}
             activeTextTrack={state.activeTextTrack}
-            scale={captionPrefs.scale}
-            bgOpacity={captionPrefs.bgOpacity}
-            delaySeconds={captionPrefs.delaySeconds}
+            prefs={captionPrefs}
           />
 
           {overlay}
@@ -360,12 +356,28 @@ export function PlayerSurface({
             <PlayerControls
               state={state}
               actions={actions}
-              captionPrefs={captionPrefs}
-              onCaptionPrefsChange={onCaptionPrefsChange}
+              captionSettingsOpen={captionSettingsOpen}
+              onOpenCaptionSettings={() => setCaptionSettingsOpen(true)}
+              captionSettingsTriggerRef={captionSettingsTriggerRef}
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
             />
           </div>
+
+          {/*
+            Van `inert` omotaca iznad, namerno: modal mora da ostane
+            fokusabilan i vidljiv bez obzira na stanje auto-skrivanja kontrola
+            (koje smo uz to i suspendovali dok je otvoren — vidi efekat gore).
+          */}
+          <CaptionSettingsModal
+            open={captionSettingsOpen}
+            onClose={closeCaptionSettings}
+            portalTarget={containerRef}
+            triggerRef={captionSettingsTriggerRef}
+            prefs={captionPrefs}
+            onChange={onCaptionPrefsChange}
+            onReset={onResetCaptionPrefs}
+          />
         </>
       )}
     </div>
