@@ -46,4 +46,16 @@ next-env.d.ts
 # media pipeline — izvorni klipovi i HLS izlaz se regenerisu skriptama iz scripts/.
 # Segmenti se objavljuju na CDN, ne drze se u gitu. Vidi "Media pipeline" u README-u.
 /media/
-/public/media/
+# Negacija ne radi kroz "/public/media/" — git ne silazi u iskljucen direktorijum,
+# pa se predak mora otvoriti sa /* da bi izuzetak ispod uopste imao dejstva.
+/public/media/*
+# Izuzetak: titlovi. Razlog zasto je media ignorisana su stotine MB .ts segmenata;
+# .vtt je par KB teksta koji je covek rucno pregledao. Regenerisanje nije ni
+# deterministicko (whisper) ni besplatno, a svez klon bez njih ne bi mogao da
+# pokaze titlove uopste.
+!/public/media/captions/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/

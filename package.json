@@ -10,6 +10,11 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:a11y": "playwright test tests/e2e/a11y.spec.ts",
     "postinstall": "prisma generate",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
@@ -22,6 +27,7 @@
     "media:clips": "scripts/make-sample-clips.sh",
     "media:encode": "scripts/encode.sh",
     "media:encode:all": "scripts/encode-all.sh",
+    "media:captions": "scripts/make-captions.sh",
     "media:verify": "scripts/verify-hls.sh",
     "media:build": "npm run media:clips && npm run media:encode:all",
     "media:sync": "scripts/sync-r2.sh",
@@ -38,6 +44,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -51,7 +59,8 @@
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "allowScripts": {
     "prisma": true,

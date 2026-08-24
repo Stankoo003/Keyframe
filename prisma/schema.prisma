@@ -52,7 +52,8 @@ model Video {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  chapters Chapter[]
+  chapters  Chapter[]
+  subtitles Subtitle[]
 
   @@index([published])
 }
@@ -80,5 +81,47 @@ model Chapter {
 
   /// Dva poglavlja istog videa ne mogu deliti redni broj — cuva baza, ne kod.
   @@unique([videoId, order])
+  @@index([videoId])
+}
+
+/// Jedan titl (WebVTT) vezan za video.
+///
+/// Vazi isto pravilo kao za Video.manifestPath — putanja je RELATIVNA:
+///   ispravno:  "captions/solar-eclipse.en.vtt"
+///   pogresno:  "/media/captions/solar-eclipse.en.vtt"
+/// Base URL dodaje `mediaUrl()` pri citanju, u src/server/videos.ts.
+///
+/// Zaseban model, a ne polje na Video-u, jer jedan snimak prirodno ima vise
+/// jezika. Prazna lista je legitimno stanje i nosi znacenje: plejer po njoj
+/// zna da CC kontrolu treba da onemoguci umesto da nudi toggle koji ne radi.
+model Subtitle {
+  id String @id @default(cuid())
+
+  videoId String
+  /// Brisanjem videa nestaju i njegovi titlovi — isto kao kod poglavlja.
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  /// BCP-47 oznaka jezika ("en", "sr"). Ide pravo u <track srclang>.
+  lang String
+
+  /// Ime koje korisnik vidi, na JEZIKU TITLA ("English", ne "Engleski") —
+  /// tako to radi i nativni meni za titlove.
+  label String
+
+  /// Relativna putanja do titl fajla (.vtt ili .srt).
+  ///
+  /// Formata NEMA u bazi namerno: plejer ga cita iz sadrzaja fajla, jer
+  /// ekstenzija redovno laze. Vidi `src/components/player/subtitle-source.ts`.
+  path String
+
+  /// Da li se ukljucuje sam. Za sada uvek false — titlovi se pale rucno,
+  /// jer ukljuceni titlovi bez pitanja smetaju vecini gledalaca.
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Jedan video ne moze imati dva titla za isti jezik — cuva baza, ne kod.
+  @@unique([videoId, lang])
   @@index([videoId])
 }

@@ -15,7 +15,7 @@ import { formatTime } from "@/lib/format";
 export function VideoCard({ video }: { video: VideoListItem }) {
   return (
     <Link href={`/videos/${video.slug}`} className="group flex flex-col">
-      <div className="kf-stripes border-kf-line group-hover:border-kf-accent-line relative aspect-video overflow-hidden rounded-kf-thumb border transition-[transform,border-color] duration-220 motion-safe:group-hover:-translate-y-0.75">
+      <div className="kf-stripes border-kf-line group-hover:border-kf-accent-line rounded-kf-thumb relative aspect-video overflow-hidden border transition-[transform,border-color] duration-220 motion-safe:group-hover:-translate-y-0.75">
         {video.posterUrl && (
           // Poster stize sa CDN-a; next/image bi trazio remotePatterns po hostu
           // koji dolazi iz env configa, pa bi konfiguracija zavisila od okruzenja.
