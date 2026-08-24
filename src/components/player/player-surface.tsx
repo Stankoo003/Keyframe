@@ -42,6 +42,7 @@ export function PlayerSurface({
   chapterStarts,
   currentChapter,
   overlay,
+  resumePromptSeconds = null,
   subtitles = [],
 }: {
   player: {
@@ -58,6 +59,13 @@ export function PlayerSurface({
   currentChapter?: number;
   /** Npr. ponuda za nastavak gledanja — crta se preko slike, iznad kontrola. */
   overlay?: React.ReactNode;
+  /**
+   * Pozicija iz ponude za nastavak, ili `null` kad ponuda nije prikazana.
+   * Zaseban od `overlay` (koji nosi samu JSX): ovde treba SAMO vrednost da bi
+   * `useAnnounceOnChange` znao kad da najavi pojavu, bez parsiranja tudjeg
+   * React stabla.
+   */
+  resumePromptSeconds?: number | null;
   /** Titlovi; prazno je legitimno i onemogucuje CC kontrolu. */
   subtitles?: readonly SubtitleDto[];
 }) {
@@ -170,6 +178,22 @@ export function PlayerSurface({
   useAnnounceOnChange(state.playbackRate, `Brzina ${state.playbackRate}×`, announce);
   // Velicina titlova se objavljuje iz svog handlera — vidi `onCaptionScaleChange`.
 
+  /**
+   * Ponuda za nastavak se pojavljuje SAMA, bez korisnikovog gesta (vidi
+   * `resume-prompt.tsx`), pa citac ekrana inace ne bi imao odakle da zna da
+   * se nesto pojavilo — nema fokusa koji bi mu to otkrio. Okidac je
+   * `resumePromptSeconds != null`, ne sam broj: pozicija se ne menja dok je
+   * ponuda prikazana, pa bi drugaciji okidac bio no-op, ali eksplicitna
+   * bool-provera cita jasnije.
+   */
+  useAnnounceOnChange(
+    resumePromptSeconds != null,
+    resumePromptSeconds != null
+      ? `Ponuda: nastavi gledanje od ${formatTime(resumePromptSeconds)}`
+      : null,
+    announce,
+  );
+
   // Pozicija se objavljuje tek kad premotavanje slegne, sa odlaganjem — vidi
   // `POSITION_ANNOUNCE_DELAY_MS`. Prevlacenje klizaca ovde NE ucestvuje: njega
   // vec pokriva `aria-valuetext` na samom klizacu, pa bi objava bila duplikat.
@@ -220,10 +244,18 @@ export function PlayerSurface({
           break;
         case "f":
         case "F":
+          // Isti gard kao "c" ispod: fokus moze da bude na <select> za font
+          // (opcija "Monospejs") u modalu za podesavanja titlova — bez garda
+          // bi F usred prevlacenja klizaca u tom modalu neocekivano gasio/
+          // palio fullscreen.
+          if (inFormControl) return;
           actions.toggleFullscreen();
           break;
         case "m":
         case "M":
+          // Isto: "M" je type-ahead precica za opciju "Monospejs" u <select>-u
+          // za font — bez garda bi umesto toga utisavala zvuk.
+          if (inFormControl) return;
           actions.toggleMute();
           break;
         case "c":

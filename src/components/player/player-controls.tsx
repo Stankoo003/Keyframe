@@ -241,7 +241,13 @@ function SkipButton({ onClick, delta }: { onClick: () => void; delta: number }) 
       title={title}
       className={`text-kf-ink3 hover:text-kf-accent shrink-0 cursor-pointer p-1.5 font-mono text-[12px] whitespace-nowrap transition-colors ${FOCUS_RING}`}
     >
-      {label}
+      {/*
+       * `aria-hidden` na vidljivom glifu: bez ovoga bi "−5s" ušao u izracunato
+       * ime preko sadrzaja i sudario se sa `aria-label` iznad (WCAG 2.5.3
+       * "Label in Name" — Lighthouse/axe `label-content-name-mismatch`).
+       * Ime dugmeta je ISKLJUCIVO `aria-label`; ovaj glif je samo vizuelni.
+       */}
+      <span aria-hidden="true">{label}</span>
     </button>
   );
 }
@@ -302,7 +308,9 @@ function CaptionsButton({ state, onToggle }: { state: PlayerState; onToggle: () 
       title={unavailable ? "Nema titlova za ovaj snimak" : "Titlovi (C)"}
       className={`${PILL} data-[on=true]:border-kf-accent data-[on=true]:text-kf-accent disabled:opacity-40`}
     >
-      CC
+      {/* `aria-hidden`: ime dugmeta je iskljucivo `aria-label` iznad — vidi
+          isti obrazac i komentar u `SkipButton`. */}
+      <span aria-hidden="true">CC</span>
     </button>
   );
 }
@@ -347,7 +355,9 @@ function CaptionSettingsButton({
       title={disabled ? "Nema titlova za ovaj snimak" : "Podešavanja titlova"}
       className={`${PILL} disabled:opacity-40`}
     >
-      Titlovi ⚙
+      {/* `aria-hidden`: ime dugmeta je iskljucivo `aria-label` iznad — vidi
+          isti obrazac i komentar u `SkipButton`. */}
+      <span aria-hidden="true">Titlovi ⚙</span>
     </button>
   );
 }

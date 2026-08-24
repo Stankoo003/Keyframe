@@ -48,7 +48,7 @@ export default async function EditVideoPage({ params }: PageProps<"/admin/videos
         <form action={boundDelete}>
           <button
             type="submit"
-            className="border-kf-danger text-kf-danger hover:bg-kf-danger-soft rounded-kf-btn cursor-pointer border px-3.5 py-2 text-[13px] font-medium transition-colors"
+            className="border-kf-danger text-kf-danger hover:bg-kf-danger-soft rounded-kf-btn kf-focus-ring cursor-pointer border px-3.5 py-2 text-[13px] font-medium transition-colors"
           >
             Obriši snimak
           </button>

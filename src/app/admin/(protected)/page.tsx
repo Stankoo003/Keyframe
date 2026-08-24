@@ -15,7 +15,7 @@ export default async function AdminVideosPage() {
         <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Snimci</h1>
         <Link
           href="/admin/videos/new"
-          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn px-3.5 py-2 text-[13px] font-semibold transition-colors hover:bg-white"
+          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn kf-focus-ring px-3.5 py-2 text-[13px] font-semibold transition-colors hover:bg-white"
         >
           + Novi snimak
         </Link>
@@ -28,7 +28,10 @@ export default async function AdminVideosPage() {
           {videos.map((video) => (
             <li key={video.id} className="flex items-center justify-between gap-4 px-4 py-3">
               <div className="min-w-0">
-                <Link href={`/admin/videos/${video.id}/edit`} className="hover:text-kf-accent text-[14px] font-medium">
+                <Link
+                  href={`/admin/videos/${video.id}/edit`}
+                  className="hover:text-kf-accent kf-focus-ring rounded-sm text-[14px] font-medium"
+                >
                   {video.title}
                 </Link>
                 <p className="text-kf-mut2 mt-0.5 font-mono text-[11px]">
@@ -45,7 +48,7 @@ export default async function AdminVideosPage() {
                   <button
                     type="submit"
                     aria-pressed={video.published}
-                    className={`rounded-kf-btn cursor-pointer border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    className={`rounded-kf-btn kf-focus-ring cursor-pointer border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                       video.published
                         ? "border-kf-accent-line bg-kf-accent-soft text-kf-accent"
                         : "border-kf-line text-kf-mut hover:bg-kf-fill"
@@ -57,7 +60,7 @@ export default async function AdminVideosPage() {
 
                 <Link
                   href={`/admin/videos/${video.id}/edit`}
-                  className="text-kf-mut hover:text-kf-accent text-[13px]"
+                  className="text-kf-mut hover:text-kf-accent kf-focus-ring rounded-sm text-[13px]"
                 >
                   Izmeni
                 </Link>

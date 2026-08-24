@@ -21,9 +21,9 @@ test("bez titla je kontrola onemogućena, a ne prazan prekidač", async ({ page 
   await cc.evaluate((el) => el.focus());
   await expect(cc).not.toBeFocused();
 
-  // Veličina titlova prati isto pravilo: bez staze nema šta da se podešava, pa
-  // nije ni prazna kontrola ni suvišna stanica pri tabovanju.
-  await expect(page.getByRole("combobox", { name: "Veličina titlova" })).toBeDisabled();
+  // Podešavanja titlova prate isto pravilo: bez staze nema šta da se podešava,
+  // pa dugme nije ni prazna kontrola ni suvišna stanica pri tabovanju.
+  await expect(page.getByRole("button", { name: "Podešavanja titlova" })).toBeDisabled();
 });
 
 test("prečica C ne radi ništa kad nema titlova", async ({ page }) => {

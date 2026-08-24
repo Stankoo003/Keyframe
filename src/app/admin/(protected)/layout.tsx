@@ -21,7 +21,10 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     <div className="min-h-full">
       <header className="border-kf-line-soft bg-kf-bg/70 sticky top-0 z-20 border-b backdrop-blur-2xl">
         <div className="mx-auto flex w-full max-w-360 items-center justify-between gap-4 px-5 py-4 md:px-12">
-          <Link href="/admin" className="text-[15px] font-semibold tracking-[-0.02em]">
+          <Link
+            href="/admin"
+            className="kf-focus-ring rounded-sm text-[15px] font-semibold tracking-[-0.02em]"
+          >
             Keyframe admin
           </Link>
           <form action={logoutAction}>

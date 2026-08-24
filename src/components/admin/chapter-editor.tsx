@@ -217,7 +217,7 @@ export function ChapterEditor({
           type="button"
           onClick={onSave}
           disabled={pending || hasErrors}
-          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn cursor-pointer px-4 py-2 text-[13px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
+          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn focus-visible:outline-kf-accent cursor-pointer px-4 py-2 text-[13px] font-semibold transition-colors hover:bg-white focus-visible:outline-2 disabled:cursor-default disabled:opacity-50"
         >
           {pending ? "Čuvam…" : "Sačuvaj poglavlja"}
         </button>

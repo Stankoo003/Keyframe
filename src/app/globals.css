@@ -125,6 +125,26 @@ body {
     text-transform: uppercase;
     color: var(--kf-mut);
   }
+
+  /*
+   * Vidljiv fokus, deljen kroz ceo sajt van plejera (koji vec ima svoj
+   * `focus-visible:outline-kf-accent ...` Tailwind string ponovljen po
+   * nekoliko fajlova — namerno netaknut ovde, vec je dosledan sam sa sobom).
+   * Ovo je JEDAN izvor istine za sve ostalo: SiteHeader, VideoCard, admin
+   * panel. CSS klasa, ne TS konstanta, da je server komponente (bez
+   * "use client") mogu koristiti bez uvoza.
+   *
+   * `--kf-accent` (#7de3ea) nad `--kf-bg`/`--kf-surface`/`--kf-surface2` (sve
+   * skoro crne) daje ~14:1 ne-tekstualni kontrast — daleko preko WCAG 1.4.11
+   * praga od 3:1 za graficke UI komponente.
+   */
+  .kf-focus-ring {
+    outline: none;
+  }
+  .kf-focus-ring:focus-visible {
+    outline: 2px solid var(--kf-accent);
+    outline-offset: 2px;
+  }
 }
 
 /*

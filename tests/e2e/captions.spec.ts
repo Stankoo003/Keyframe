@@ -8,9 +8,9 @@ import { expect, test, type Page } from "@playwright/test";
  * cue-ovi POKLOPLJENI sa zvukom, a ne samo da je staza ukljucena.
  */
 const CUE = { atSeconds: 30, contains: "incredible mission" };
-/** Poslednji cue u fajlu (~8:20) — dokaz da sinhronizacija ne zavisi od toga
- *  koliko je cue-ova staza vec prosla, ne samo prvog. */
-const LATE_CUE = { atSeconds: 500, contains: "see you in the next video" };
+/** Poslednji cue u fajlu (08:20.440 --> 08:21.800) — dokaz da sinhronizacija ne
+ *  zavisi od toga koliko je cue-ova staza vec prosla, ne samo prvog. */
+const LATE_CUE = { atSeconds: 501, contains: "see you in the next video" };
 
 /** Sacekaj da metapodaci stignu — pre toga je `duration` 0 i seek ne radi. */
 async function waitForMetadata(page: Page): Promise<void> {

@@ -10,20 +10,33 @@ import { formatTime } from "@/lib/format";
  *
  * Namerno NE pomera reprodukciju samo od sebe: zahtev trazi PONUDU. Traka stoji
  * preko dna slike, iznad kontrola, i nestaje sama ako je korisnik ignorise.
+ *
+ * `role="dialog"` BEZ `useFocusTrap` — namerno, za razliku od
+ * `CaptionSettingsModal`. Ponuda se ne pojavljuje na korisnikov gest (nema
+ * "trigger" dugme kom bi se fokus vratio), nego sama kad plejer bude spreman.
+ * Otimanje fokusa od necega sto korisnik vec radi (npr. tabuje kroz listu
+ * poglavlja) bi bilo iznenadjenje, ne pomoc — zato ponuda samo ceka u
+ * normalnom redosledu tabovanja i objavljuje se kroz `aria-live` (vidi
+ * `player-surface.tsx`/`player-stage.tsx`), umesto da vuce fokus na silu.
  */
 export function ResumePrompt({
   seconds,
   onResume,
   onRestart,
+  onFocusWithinChange,
 }: {
   seconds: number;
   onResume: () => void;
   onRestart: () => void;
+  /** Javlja da li je fokus UNUTAR ponude — `PlayerStage` time zaustavlja auto-nestajanje. */
+  onFocusWithinChange?: (focused: boolean) => void;
 }) {
   return (
     <div
       role="dialog"
       aria-label="Nastavak gledanja"
+      onFocus={() => onFocusWithinChange?.(true)}
+      onBlur={() => onFocusWithinChange?.(false)}
       className="border-kf-line-strong bg-kf-bg/85 rounded-kf-btn absolute inset-x-3 bottom-20 z-20 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 backdrop-blur-xl sm:inset-x-5"
     >
       <p className="text-kf-ink2 text-[13px]">

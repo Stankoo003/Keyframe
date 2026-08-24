@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, INITIAL_STATE);
 
   return (
-    <div className="flex min-h-full items-center justify-center px-5">
+    <main className="flex min-h-full items-center justify-center px-5">
       <form action={formAction} className="border-kf-line bg-kf-surface rounded-kf-card w-full max-w-90 border p-6">
         <h1 className="mb-5 text-[18px] font-semibold tracking-[-0.02em]">Keyframe admin</h1>
 
@@ -41,11 +41,11 @@ export default function AdminLoginPage() {
         <button
           type="submit"
           disabled={pending}
-          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn mt-4 w-full cursor-pointer px-4 py-2.5 text-[14px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
+          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn kf-focus-ring mt-4 w-full cursor-pointer px-4 py-2.5 text-[14px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
         >
           {pending ? "Prijava…" : "Prijavi se"}
         </button>
       </form>
-    </div>
+    </main>
   );
 }

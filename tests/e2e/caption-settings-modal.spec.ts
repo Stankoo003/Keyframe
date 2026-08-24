@@ -55,8 +55,12 @@ test("klik na pozadinu zatvara modal", async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "Podešavanja titlova" });
   await expect(dialog).toBeVisible();
 
-  // Klik u ugao modala-omotaca, van samog panela.
-  await page.mouse.click(5, 5);
+  // Klik u ugao SAMOG omotaca (backdrop), ne apsolutna koordinata viewport-a:
+  // omotac je `absolute inset-0` u odnosu na kontejner plejera, koji ne pocinje
+  // nuzno na (0,0) stranice — apsolutna koordinata bi lako promasila i sletela
+  // van plejera. Pozicija (4,4) unutar omotaca je van centriranog panela.
+  const backdrop = dialog.locator("xpath=..");
+  await backdrop.click({ position: { x: 4, y: 4 } });
   await expect(dialog).not.toBeVisible();
 });
 

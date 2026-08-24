@@ -77,10 +77,15 @@ export function useFocusTrap(
 
     return () => {
       container.removeEventListener("keydown", onKeyDown);
-      // Fokus se vraca SAMO ako je jos uvek unutar modala — ako je korisnik
-      // vec kliknuo negde drugde pre nego sto se modal zatvorio, otimanje
-      // fokusa bi bilo iznenadjenje, ne pomoc.
-      if (container.contains(document.activeElement)) trigger?.focus();
+      // BEZUSLOVNO, ne "samo ako je fokus jos unutra": modal se unmount-uje
+      // (vidi `CaptionSettingsModal`, `if (!open) return null`) PRE nego sto
+      // ovaj cleanup stigne da se izvrsi, a uklanjanje fokusiranog cvora iz
+      // DOM-a browser sam odmah prebaci fokus na <body> — provera "da li je
+      // fokus jos u kontejneru" bi zato UVEK bila false, bas u trenutku kad
+      // treba da uspe. Jedini nacin da se modal zatvori jeste kroz njegove
+      // sopstvene akcije (Esc, klik na pozadinu, dugme) — nema scenarija u
+      // kom bi vracanje fokusa na okidac bilo neocekivano.
+      trigger?.focus();
     };
   }, [active, containerRef, onClose, returnFocusTo]);
 }

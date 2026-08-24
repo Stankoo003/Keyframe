@@ -22,7 +22,7 @@ export function SiteHeader({ showBack = false, meta }: { showBack?: boolean; met
             <>
               <Link
                 href="/"
-                className="text-kf-mut hover:text-kf-accent flex items-center gap-2.5 text-[13px] transition-colors"
+                className="text-kf-mut hover:text-kf-accent kf-focus-ring flex items-center gap-2.5 rounded-sm text-[13px] transition-colors"
               >
                 <span
                   aria-hidden="true"
@@ -34,7 +34,7 @@ export function SiteHeader({ showBack = false, meta }: { showBack?: boolean; met
             </>
           )}
 
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="kf-focus-ring flex items-center gap-2.5 rounded-sm">
             <span
               aria-hidden="true"
               className="border-kf-accent flex size-5.5 items-center justify-center rounded-md border-[1.5px]"

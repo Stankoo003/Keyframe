@@ -143,7 +143,7 @@ export function VideoForm({
       <button
         type="submit"
         disabled={pending}
-        className="bg-kf-ink text-kf-accent-ink rounded-kf-btn mt-1 cursor-pointer px-4 py-2.5 text-[14px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
+        className="bg-kf-ink text-kf-accent-ink rounded-kf-btn kf-focus-ring mt-1 cursor-pointer px-4 py-2.5 text-[14px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
       >
         {pending ? "Čuvam…" : submitLabel}
       </button>

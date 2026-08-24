@@ -106,7 +106,7 @@ function Hero({ video }: { video: VideoListItem }) {
 
         <Link
           href={`/videos/${video.slug}`}
-          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn mt-6.5 inline-flex items-center gap-2.5 px-6 py-3.25 text-sm font-semibold transition-[transform,background] duration-180 hover:bg-white motion-safe:hover:-translate-y-px"
+          className="bg-kf-ink text-kf-accent-ink rounded-kf-btn kf-focus-ring mt-6.5 inline-flex items-center gap-2.5 px-6 py-3.25 text-sm font-semibold transition-[transform,background] duration-180 hover:bg-white motion-safe:hover:-translate-y-px"
         >
           <span
             aria-hidden="true"
