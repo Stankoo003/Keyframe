@@ -26,3 +26,13 @@ export const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
 /** Koliko mirovanja pre nego sto se kontrole sakriju — samo dok video svira. */
 export const CONTROLS_HIDE_MS = 3000;
+
+/**
+ * Koliko dugo se ceka posle `waiting`/`stalled` pre nego sto se prikaze
+ * "veza prekinuta" natpis.
+ *
+ * Kratki `waiting` eventi su normalni (start baferovanja, seek preko
+ * nepreuzetog dela) i ne smeju da izazovu treperenje natpisa — samo
+ * baferovanje koje potraje DUZE od ovoga lici na stvaran problem sa mrezom.
+ */
+export const STALL_GRACE_MS = 1500;

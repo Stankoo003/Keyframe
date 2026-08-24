@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ConnectionOverlay } from "./connection-overlay";
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
 import type { PlaybackEngine } from "./engine/types";
 import { PlayerContextMenu } from "./player-context-menu";
@@ -190,6 +191,8 @@ export function PlayerSurface({
       ) : (
         <>
           {overlay}
+
+          <ConnectionOverlay visible={state.reconnecting} />
 
           {statsOpen && <StatsOverlay snapshot={statsSnapshot} onClose={closeStats} />}
 

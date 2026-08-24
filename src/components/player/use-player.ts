@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { SEEK_END_EPSILON_SECONDS } from "./constants";
+import { SEEK_END_EPSILON_SECONDS, STALL_GRACE_MS } from "./constants";
 import { createEngine } from "./engine/create-engine";
 import { AUTO_LEVEL, type PlaybackEngine, type QualityLevel } from "./engine/types";
 
@@ -25,6 +25,13 @@ export type PlayerState = {
   levels: QualityLevel[];
   currentLevel: number;
   supportsLevelSelection: boolean;
+  /**
+   * Baferovanje due DUZE od `STALL_GRACE_MS`, ili je mreza eksplicitno
+   * offline — vidi efekat koji ovo postavlja nize. Razlicito od `error`:
+   * ovo je PRIVREMENO i samo-oporavljajuce (retry je vec ugradjen u <video>/
+   * hls.js), `error` je fatalno i trazi korisnikovu akciju.
+   */
+  reconnecting: boolean;
   error: string | null;
 };
 
@@ -57,6 +64,7 @@ const INITIAL: PlayerState = {
   levels: [],
   currentLevel: AUTO_LEVEL,
   supportsLevelSelection: false,
+  reconnecting: false,
   error: null,
 };
 
@@ -230,6 +238,91 @@ export function usePlayer(src: string) {
     const onFsChange = () => patch({ fullscreen: document.fullscreenElement != null });
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, [patch]);
+
+  /**
+   * "Veza prekinuta" — prati baferovanje i mrezno stanje, NE engine.
+   *
+   * Namerno na `<video>` DOM eventima, isto kao transport gore: `waiting`/
+   * `stalled`/`playing` znace isto bez obzira da li vozi hls.js ili nativni
+   * Safari HLS, pa ne treba nista engine-specificno. Retry je vec ugradjen
+   * (hls.js sam ponavlja neuspele fragmente, browser sam ponavlja fetch) —
+   * ovo samo PRIKAZUJE da se to desava, ne pokrece ga.
+   *
+   * DVA NEZAVISNA fleg-a, OR-ovana u `reconnecting`, ne jedan zajednicki:
+   * `stalled` prati STVARNO baferovanje (waiting→playing), `offline` prati
+   * SAMO mrezno stanje browsera (offline→online). Bez razdvajanja: ako video
+   * ima dovoljno vec preuzetog bafera da "preplovi" ceo offline period bez
+   * ijednog `waiting`-a, natpis bi ostao zaglavljen zauvek — nijedan
+   * `playing`/`canplay` se ne bi ni desio da ga ugasi, jer reprodukcija nikad
+   * nije ni stala. Sa dva fleg-a, `online` gasi SVOJ deo odmah; ako je
+   * baferovanje ipak i dalje u toku, `stalled` ga drzi prikazanim dok se
+   * stvarno ne nastavi.
+   */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    let stalled = false;
+    let offline = false;
+
+    const clearStallTimer = () => {
+      if (stallTimer) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+      }
+    };
+
+    const recompute = () => patch({ reconnecting: stalled || offline });
+
+    // Kratak `waiting` (start baferovanja, seek) je normalan — natpis se
+    // pali tek ako baferovanje potraje duze od `STALL_GRACE_MS`.
+    const onStalled = () => {
+      clearStallTimer();
+      stallTimer = setTimeout(() => {
+        stalled = true;
+        recompute();
+      }, STALL_GRACE_MS);
+    };
+
+    const onRecovered = () => {
+      clearStallTimer();
+      stalled = false;
+      recompute();
+    };
+
+    // Offline je nedvosmislen signal — bez cekanja grace perioda. Vazi samo
+    // dok se reprodukuje: pauziran video koji izgubi mrezu nije "problem"
+    // dok ga korisnik ponovo ne pokrene.
+    const onOffline = () => {
+      if (!video.paused) {
+        offline = true;
+        recompute();
+      }
+    };
+
+    const onOnline = () => {
+      offline = false;
+      recompute();
+    };
+
+    video.addEventListener("waiting", onStalled);
+    video.addEventListener("stalled", onStalled);
+    video.addEventListener("playing", onRecovered);
+    video.addEventListener("canplay", onRecovered);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      clearStallTimer();
+      video.removeEventListener("waiting", onStalled);
+      video.removeEventListener("stalled", onStalled);
+      video.removeEventListener("playing", onRecovered);
+      video.removeEventListener("canplay", onRecovered);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
   }, [patch]);
 
   const actions: PlayerActions = {
