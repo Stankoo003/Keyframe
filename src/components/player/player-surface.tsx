@@ -335,8 +335,16 @@ export function PlayerSurface({
       </div>
 
       {state.error ? (
-        <div className="text-kf-danger absolute inset-0 flex items-center justify-center p-4 text-center text-sm">
-          Greška pri reprodukciji: {state.error}
+        <div className="text-kf-danger absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center text-sm">
+          <p>Greška pri reprodukciji: {state.error}</p>
+          <button
+            type="button"
+            onClick={actions.retryPlayback}
+            autoFocus
+            className="border-kf-danger rounded-kf-btn cursor-pointer border px-3.5 py-2 text-[13px] font-medium"
+          >
+            Pokušaj ponovo
+          </button>
         </div>
       ) : (
         <>
@@ -345,6 +353,22 @@ export function PlayerSurface({
             activeTextTrack={state.activeTextTrack}
             prefs={captionPrefs}
           />
+
+          {/*
+            Nenametljiv baner, NE pun takeover — video i kontrole ostaju
+            upotrebljivi dok engine sam pokusava oporavak (npr. mrezni
+            prekid). `role="status"` + `aria-live` da citac ekrana cuje i
+            kad korisnik gleda negde drugde.
+          */}
+          {state.recovering && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="bg-kf-bg/85 rounded-kf-btn border-kf-line-strong absolute top-3 left-3 z-20 border px-3 py-1.5 text-[12px] backdrop-blur-xl"
+            >
+              Veza je nestabilna, pokušavam ponovo…
+            </div>
+          )}
 
           {overlay}
 
