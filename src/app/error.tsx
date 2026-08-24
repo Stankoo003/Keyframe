@@ -49,7 +49,7 @@ export default function BrowseError({
         <button
           type="button"
           onClick={reset}
-          className="bg-kf-accent text-kf-accent-ink rounded-kf-btn hover:bg-kf-accent-hover cursor-pointer px-4 py-2.5 text-[13px] font-semibold transition-colors"
+          className="bg-kf-accent text-kf-accent-ink rounded-kf-btn kf-focus-ring hover:bg-kf-accent-hover cursor-pointer px-4 py-2.5 text-[13px] font-semibold transition-colors"
         >
           Pokušaj ponovo
         </button>

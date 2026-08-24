@@ -46,7 +46,7 @@ test("sve kontrole se dosegnu Tabom", async ({ page }) => {
     "Utišaj zvuk",
     "Jačina zvuka",
     "Titlovi",
-    "Veličina titlova",
+    "Podešavanja titlova",
     "Kvalitet",
     "Brzina reprodukcije",
     "Ceo ekran",
@@ -140,4 +140,47 @@ test("sakrivene kontrole nisu dostupne Tabom", async ({ page }) => {
   const wrapper = page.locator("[data-visible]");
   await expect(wrapper).toHaveAttribute("data-visible", "false", { timeout: 10_000 });
   await expect(wrapper).toHaveAttribute("inert", "");
+});
+
+/**
+ * Regresija: "f"/"m" nisu imali gard za polja, za razliku od svih ostalih
+ * precica u istom switch-u. Konkretan slucaj koji je otkriven: <select> za
+ * font u modalu za podesavanja titlova ima opciju "Monospejs" — "M" kao
+ * type-ahead precica bi umesto toga utisala zvuk.
+ */
+test("'f' i 'm' se ne okidaju dok je fokus u modalu za podesavanja titlova", async ({ page }) => {
+  await page.getByRole("button", { name: "Podešavanja titlova" }).click();
+
+  const fontSelect = page.getByRole("combobox", { name: "Font titlova" });
+  await fontSelect.focus();
+  await page.keyboard.press("m");
+  const muted = () => page.evaluate(() => document.querySelector("video")?.muted ?? null);
+  await expect.poll(muted).toBe(false);
+
+  const sizeSlider = page.getByRole("slider", { name: "Veličina fonta titlova" });
+  await sizeSlider.focus();
+  await page.keyboard.press("f");
+  const fullscreen = () => page.evaluate(() => document.fullscreenElement != null);
+  await expect.poll(fullscreen).toBe(false);
+});
+
+/**
+ * Regresija: izlazak iz fullscreen-a nije vracao fokus, pa je korisnik
+ * tastature posle Esc-a mogao da ostane na <body> i mora da tabuje od vrha
+ * stranice. Headless Chromium podrzava pravi Fullscreen API SAMO iz
+ * "trusted" korisnickog gesta — zato se ovde koristi stvaran `keyboard.press`,
+ * ne `page.evaluate(() => el.requestFullscreen())`.
+ */
+test("fokus se vraca na plejer posle izlaska iz fullscreen-a", async ({ page }) => {
+  const player = page.getByRole("region", { name: /^Plejer:/ });
+  await player.focus();
+
+  await page.keyboard.press("f");
+  const isFullscreen = () => page.evaluate(() => document.fullscreenElement != null);
+  await expect.poll(isFullscreen, { timeout: 5000 }).toBe(true);
+
+  await page.keyboard.press("f");
+  await expect.poll(isFullscreen).toBe(false);
+
+  await expect(player).toBeFocused();
 });

@@ -66,6 +66,16 @@ export function PlayerStage({
    */
   const [savedPosition] = useState<number | null>(() => readProgress(videoId));
   const [dismissed, setDismissed] = useState(false);
+  /**
+   * Jednosmerna reza: cim korisnik tastature UNUDJE u ponudu (Tab do jednog
+   * od dugmadi), auto-nestajanje se trajno otkazuje. Bez ovoga bi sporiji
+   * korisnik citaca ekrana mogao da izgubi ponudu tacno dok je pokusava
+   * dosegnuti — takmicenje sa satom koje korisnik ne moze da vidi unapred.
+   */
+  const [promptEngaged, setPromptEngaged] = useState(false);
+  const onPromptFocusChange = useCallback((focused: boolean) => {
+    if (focused) setPromptEngaged(true);
+  }, []);
 
   /**
    * Ponuda je IZVEDENA, ne drzi se u zasebnom stanju.
@@ -82,11 +92,13 @@ export function PlayerStage({
     savedPosition < state.duration;
 
   // Ponuda sama nestaje — ignorisanje je validan odgovor i ne sme da blokira sliku.
+  // ALI ne dok je korisnik tastature aktivno u njoj (`promptEngaged`) — vidi
+  // komentar uz `onPromptFocusChange` gore.
   useEffect(() => {
-    if (!showResume) return;
+    if (!showResume || promptEngaged) return;
     const timer = setTimeout(() => setDismissed(true), RESUME_PROMPT_MS);
     return () => clearTimeout(timer);
-  }, [showResume]);
+  }, [showResume, promptEngaged]);
 
   const onResume = useCallback(() => {
     if (savedPosition !== null) actions.seek(savedPosition);
@@ -140,9 +152,15 @@ export function PlayerStage({
         chapterStarts={starts}
         currentChapter={activeChapter}
         subtitles={subtitles}
+        resumePromptSeconds={showResume ? savedPosition : null}
         overlay={
           showResume && savedPosition !== null ? (
-            <ResumePrompt seconds={savedPosition} onResume={onResume} onRestart={onRestart} />
+            <ResumePrompt
+              seconds={savedPosition}
+              onResume={onResume}
+              onRestart={onRestart}
+              onFocusWithinChange={onPromptFocusChange}
+            />
           ) : null
         }
       />

@@ -314,7 +314,20 @@ export function usePlayer(src: string) {
 
   // Fullscreen stanje prati document, jer korisnik može izaći Esc-om.
   useEffect(() => {
-    const onFsChange = () => patch({ fullscreen: document.fullscreenElement != null });
+    const onFsChange = () => {
+      const active = document.fullscreenElement != null;
+      patch({ fullscreen: active });
+
+      // Neki browseri, pri izlasku iz fullscreen-a (dugme, "f", ili
+      // browserov Esc), obore fokus na <body> umesto da ga zadrze — korisnik
+      // tastature bi tad morao da tabuje ispočetka od vrha stranice. Kontejner
+      // vec ima `tabIndex={0}` i sve precice su na njemu, pa je najprostiji
+      // pouzdan cilj za vracanje fokusa — bez potrebe da se pamti tacno koji
+      // je element bio fokusiran pre ulaska u fullscreen.
+      if (!active && (document.activeElement === document.body || document.activeElement == null)) {
+        containerRef.current?.focus();
+      }
+    };
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, [patch]);

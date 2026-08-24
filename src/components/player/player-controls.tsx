@@ -1,6 +1,5 @@
 "use client";
 
-import { CAPTION_SCALES, type CaptionScale } from "@/lib/caption-prefs";
 import { formatTime } from "@/lib/format";
 
 import { PLAYBACK_RATES, SEEK_STEP_SECONDS } from "./constants";
@@ -11,9 +10,9 @@ import type { PlayerActions, PlayerState } from "./use-player";
  * o hls.js-u, engine-u ni <video> elementu (samo `import type`, koji se briše u
  * kompajlu). Zato se renderuje u testu sa lažnim propsima, bez pravog strima.
  *
- * Redosled u traci je iz zahteva, uz veličinu titlova odmah uz same titlove:
- *   play/pauza · nazad · napred · zvuk · vreme · titlovi · veličina · kvalitet ·
- *   brzina · fullscreen
+ * Redosled u traci je iz zahteva, uz podesavanja titlova odmah uz same titlove:
+ *   play/pauza · nazad · napred · zvuk · vreme · titlovi · podesavanja titlova ·
+ *   kvalitet · brzina · fullscreen
  *
  * Izgled je iz Claude Design fajla `KeyFrame Player.dc.html`: staza 4px, cyan
  * napredak, beo okrugli thumb sa oreolom, i pilule sa mono tekstom desno.
@@ -21,16 +20,19 @@ import type { PlayerActions, PlayerState } from "./use-player";
 export function PlayerControls({
   state,
   actions,
-  captionScale,
-  onCaptionScaleChange,
+  captionSettingsOpen,
+  onOpenCaptionSettings,
+  captionSettingsTriggerRef,
   chapterStarts = [],
   currentChapter = -1,
 }: {
   state: PlayerState;
   actions: PlayerActions;
-  /** Mnozilac velicine titlova; vlasnik stanja je `PlayerSurface`. */
-  captionScale: CaptionScale;
-  onCaptionScaleChange: (scale: CaptionScale) => void;
+  /** Da li je modal za podesavanja titlova otvoren; vlasnik stanja je `PlayerSurface`. */
+  captionSettingsOpen: boolean;
+  onOpenCaptionSettings: () => void;
+  /** Dugme koje otvara modal — `PlayerSurface` mu vraca fokus pri zatvaranju. */
+  captionSettingsTriggerRef: React.RefObject<HTMLButtonElement | null>;
   /** Pocetci poglavlja u sekundama — crtice na traci. Prazno = ne crta se nista. */
   chapterStarts?: readonly number[];
   /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
@@ -172,7 +174,12 @@ export function PlayerControls({
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <CaptionsButton state={state} onToggle={actions.toggleCaptions} />
 
-          <CaptionScaleSelect state={state} value={captionScale} onChange={onCaptionScaleChange} />
+          <CaptionSettingsButton
+            state={state}
+            open={captionSettingsOpen}
+            onOpen={onOpenCaptionSettings}
+            triggerRef={captionSettingsTriggerRef}
+          />
 
           <QualitySelect state={state} onSelect={actions.selectLevel} />
 
@@ -234,7 +241,13 @@ function SkipButton({ onClick, delta }: { onClick: () => void; delta: number }) 
       title={title}
       className={`text-kf-ink3 hover:text-kf-accent shrink-0 cursor-pointer p-1.5 font-mono text-[12px] whitespace-nowrap transition-colors ${FOCUS_RING}`}
     >
-      {label}
+      {/*
+       * `aria-hidden` na vidljivom glifu: bez ovoga bi "−5s" ušao u izracunato
+       * ime preko sadrzaja i sudario se sa `aria-label` iznad (WCAG 2.5.3
+       * "Label in Name" — Lighthouse/axe `label-content-name-mismatch`).
+       * Ime dugmeta je ISKLJUCIVO `aria-label`; ovaj glif je samo vizuelni.
+       */}
+      <span aria-hidden="true">{label}</span>
     </button>
   );
 }
@@ -295,48 +308,56 @@ function CaptionsButton({ state, onToggle }: { state: PlayerState; onToggle: () 
       title={unavailable ? "Nema titlova za ovaj snimak" : "Titlovi (C)"}
       className={`${PILL} data-[on=true]:border-kf-accent data-[on=true]:text-kf-accent disabled:opacity-40`}
     >
-      CC
+      {/* `aria-hidden`: ime dugmeta je iskljucivo `aria-label` iznad — vidi
+          isti obrazac i komentar u `SkipButton`. */}
+      <span aria-hidden="true">CC</span>
     </button>
   );
 }
 
 /**
- * Velicina titlova.
+ * Otvara modal za podesavanja izgleda titlova (`CaptionSettingsModal`, u
+ * `player-surface.tsx`).
  *
- * Ime je "Veličina titlova", a ne "Titlovi …" — citac ekrana tako izgovori
- * "Veličina titlova, 130%", sto je jednoznacno naspram dugmeta "Titlovi".
+ * Obican `<button>`, ne `<details>`: modal ima sopstvenu fokus-zamku i vraca
+ * fokus TACNO na `triggerRef` (vidi `use-focus-trap.ts`), sto `<details>` ne
+ * ume — Enter/Space za otvaranje dolaze besplatno jer je ovo dugme.
  *
- * ONEMOGUCENO kad snimak nema staze, iz istog razloga kao samo dugme: podesavanje
- * velicine nepostojecih titlova je tacno ona prazna kontrola koja ne radi nista.
- * Onemogucen <select> uz to ispada iz tab redosleda, pa se broj stanica pri
- * tabovanju na takvom snimku uopste ne menja.
+ * ONEMOGUCENO kad snimak nema staze, iz istog razloga kao `CaptionsButton`:
+ * podesavanje nepostojecih titlova je prazna kontrola koja ne radi nista, a
+ * onemoguceno dugme ispada iz tab redosleda.
  *
- * NIJE onemoguceno kad titlovi postoje ali su ugaseni — treperilo bi na svaki
- * CC toggle i otimalo fokus, a velicinu je legitimno podesiti i pre paljenja.
+ * NIJE onemoguceno kad titlovi postoje ali su ugaseni — podesiti izgled je
+ * legitimno i pre nego sto se upale.
  */
-function CaptionScaleSelect({
+function CaptionSettingsButton({
   state,
-  value,
-  onChange,
+  open,
+  onOpen,
+  triggerRef,
 }: {
   state: PlayerState;
-  value: CaptionScale;
-  onChange: (scale: CaptionScale) => void;
+  open: boolean;
+  onOpen: () => void;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
 }) {
+  const disabled = state.textTracks.length === 0;
+
   return (
-    <select
-      aria-label="Veličina titlova"
-      title="Veličina titlova"
-      disabled={state.textTracks.length === 0}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value) as CaptionScale)}
+    <button
+      ref={triggerRef}
+      type="button"
+      onClick={onOpen}
+      disabled={disabled}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-label="Podešavanja titlova"
+      title={disabled ? "Nema titlova za ovaj snimak" : "Podešavanja titlova"}
       className={`${PILL} disabled:opacity-40`}
     >
-      {CAPTION_SCALES.map((scale) => (
-        <option key={scale} value={scale}>
-          {Math.round(scale * 100)}%
-        </option>
-      ))}
-    </select>
+      {/* `aria-hidden`: ime dugmeta je iskljucivo `aria-label` iznad — vidi
+          isti obrazac i komentar u `SkipButton`. */}
+      <span aria-hidden="true">Titlovi ⚙</span>
+    </button>
   );
 }

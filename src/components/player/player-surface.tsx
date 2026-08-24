@@ -4,15 +4,17 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 
 import type { SubtitleDto } from "@/domain/video";
 import {
-  getCaptionScaleServerSnapshot,
-  getCaptionScaleSnapshot,
-  saveCaptionScale,
-  subscribeCaptionScale,
-  type CaptionScale,
+  getCaptionPrefsServerSnapshot,
+  getCaptionPrefsSnapshot,
+  resetCaptionPrefs,
+  saveCaptionPrefs,
+  subscribeCaptionPrefs,
+  type CaptionPrefs,
 } from "@/lib/caption-prefs";
 import { formatTime } from "@/lib/format";
 
 import { CaptionOverlay } from "./caption-overlay";
+import { CaptionSettingsModal } from "./caption-settings-modal";
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
 import { PlayerControls } from "./player-controls";
 import { useAnnouncer, useAnnounceOnChange } from "./use-announcer";
@@ -40,6 +42,7 @@ export function PlayerSurface({
   chapterStarts,
   currentChapter,
   overlay,
+  resumePromptSeconds = null,
   subtitles = [],
 }: {
   player: {
@@ -56,6 +59,13 @@ export function PlayerSurface({
   currentChapter?: number;
   /** Npr. ponuda za nastavak gledanja — crta se preko slike, iznad kontrola. */
   overlay?: React.ReactNode;
+  /**
+   * Pozicija iz ponude za nastavak, ili `null` kad ponuda nije prikazana.
+   * Zaseban od `overlay` (koji nosi samu JSX): ovde treba SAMO vrednost da bi
+   * `useAnnounceOnChange` znao kad da najavi pojavu, bez parsiranja tudjeg
+   * React stabla.
+   */
+  resumePromptSeconds?: number | null;
   /** Titlovi; prazno je legitimno i onemogucuje CC kontrolu. */
   subtitles?: readonly SubtitleDto[];
 }) {
@@ -71,47 +81,50 @@ export function PlayerSurface({
   );
   const [idle, setIdle] = useState(false);
   const [hasFocusWithin, setHasFocusWithin] = useState(false);
+  const [captionSettingsOpen, setCaptionSettingsOpen] = useState(false);
+  const captionSettingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { message: announcement, announce } = useAnnouncer();
 
   /**
-   * Velicina titlova se cita kroz `useSyncExternalStore`, a ne kroz lazy
+   * Podesavanja titlova se citaju kroz `useSyncExternalStore`, a ne kroz lazy
    * `useState` initializer.
    *
    * `player-stage.tsx` cita zapamcenu poziciju lazy initializer-om i prolazi
    * nekaznjeno — ali samo zato sto je prikaz te vrednosti vezan za `state.ready`,
    * koje je pri hidrataciji `false`, pa i server i klijent renderuju `null`.
    *
-   * Ovde tog izlaza NEMA: <select> i inline `--kf-cc-scale` postoje vec u prvom
-   * renderu, a server nema `localStorage`. `getServerSnapshot` resava tacno to —
-   * server i hidratacija vide podrazumevanu vrednost, prava stigne odmah posle.
+   * Ovde tog izlaza NEMA: panel i inline `--kf-cc-scale`/`--kf-cc-bg` postoje
+   * vec u prvom renderu, a server nema `localStorage`. `getServerSnapshot`
+   * resava tacno to — server i hidratacija vide podrazumevanu vrednost, prava
+   * stigne odmah posle.
    */
-  const captionScale = useSyncExternalStore(
-    subscribeCaptionScale,
-    getCaptionScaleSnapshot,
-    getCaptionScaleServerSnapshot,
+  const captionPrefs = useSyncExternalStore(
+    subscribeCaptionPrefs,
+    getCaptionPrefsSnapshot,
+    getCaptionPrefsServerSnapshot,
   );
 
   /**
-   * Objava ide ODAVDE, a ne kroz `useAnnounceOnChange` kao ostale.
+   * `saveCaptionPrefs`/`resetCaptionPrefs` sami obavestavaju pretplatnike, pa
+   * novo stanje stize nazad kroz `useSyncExternalStore` — nema drugog izvora
+   * istine, i nema potrebe za lokalnim `setState`.
    *
-   * Ostala stanja (brzina, zvuk, pauza) stizu iz vise izvora — dugme, precica,
-   * dogadjaj sa elementa — pa se moraju pratiti kroz stanje da se nijedan put ne
-   * propusti. Velicina titlova ima tacno JEDAN izvor: ovaj handler.
-   *
-   * Uz to, pracenje kroz stanje bi objavilo i promenu koju efekat iznad napravi
-   * citajuci `localStorage` — pa bi plejer pri svakom ucitavanju stranice rekao
-   * "Veličina titlova 130%", objavu koju korisnik nije izazvao.
+   * BEZ `announce()` ovde, za razliku od ostalih kontrola: sve ovo su klizaci
+   * i color input-i unutar modala koji se aktivno prevlace, pa bi svaka
+   * promena zatrpala zivi region. Svaki kontrol u modalu nosi svoj
+   * `aria-label`/`aria-valuetext`, sto citacu ekrana vec daje trenutnu
+   * vrednost pri fokusu — isto pravilo kao klizac za zvuk.
    */
-  const onCaptionScaleChange = useCallback(
-    (scale: CaptionScale) => {
-      // `saveCaptionScale` sam obavestava pretplatnike, pa novo stanje stize
-      // nazad kroz `useSyncExternalStore` — nema drugog izvora istine.
-      saveCaptionScale(scale);
-      announce(`Veličina titlova ${Math.round(scale * 100)}%`);
-    },
-    [announce],
-  );
+  const onCaptionPrefsChange = useCallback((patch: Partial<CaptionPrefs>) => {
+    saveCaptionPrefs(patch);
+  }, []);
+
+  const onResetCaptionPrefs = useCallback(() => {
+    resetCaptionPrefs();
+  }, []);
+
+  const closeCaptionSettings = useCallback(() => setCaptionSettingsOpen(false), []);
 
   /**
    * Vidljivost se IZVODI, ne drži u zasebnom stanju: na pauzi su kontrole uvek
@@ -121,8 +134,12 @@ export function PlayerSurface({
    * `hasFocusWithin` je tu zbog pristupacnosti: kontrole se NIKAD ne gase dok je
    * fokus u njima. Bez toga bi korisniku tastature fokus ostao na dugmetu koje
    * se u medjuvremenu ugasilo, a `inert` ispod bi mu ga oteo.
+   *
+   * `captionSettingsOpen` je iz istog razloga: modal je van `inert` omotaca
+   * (portal je direktno dete kontejnera, vidi JSX ispod), pa bez ovoga bi se
+   * kontrole ispod njega mogle stopiti dok korisnik jos bira boju.
    */
-  const controlsVisible = !state.playing || !idle || hasFocusWithin;
+  const controlsVisible = !state.playing || !idle || hasFocusWithin || captionSettingsOpen;
 
   const scheduleHide = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -135,9 +152,10 @@ export function PlayerSurface({
     scheduleHide();
   }, [scheduleHide]);
 
-  // Odbrojavanje teče samo dok video svira; na pauzi se poništava.
+  // Odbrojavanje teče samo dok video svira i modal nije otvoren; u oba
+  // suprotna slucaja se poništava.
   useEffect(() => {
-    if (!state.playing) {
+    if (!state.playing || captionSettingsOpen) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       return;
     }
@@ -146,7 +164,7 @@ export function PlayerSurface({
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
-  }, [state.playing, scheduleHide]);
+  }, [state.playing, captionSettingsOpen, scheduleHide]);
 
   // Play/pause se izvodi iz stanja, a ne iz akcije — tako jedna objava pokriva
   // i dugme, i razmak, i klik na sliku, i ne moze da se razidje sa elementom.
@@ -159,6 +177,22 @@ export function PlayerSurface({
   );
   useAnnounceOnChange(state.playbackRate, `Brzina ${state.playbackRate}×`, announce);
   // Velicina titlova se objavljuje iz svog handlera — vidi `onCaptionScaleChange`.
+
+  /**
+   * Ponuda za nastavak se pojavljuje SAMA, bez korisnikovog gesta (vidi
+   * `resume-prompt.tsx`), pa citac ekrana inace ne bi imao odakle da zna da
+   * se nesto pojavilo — nema fokusa koji bi mu to otkrio. Okidac je
+   * `resumePromptSeconds != null`, ne sam broj: pozicija se ne menja dok je
+   * ponuda prikazana, pa bi drugaciji okidac bio no-op, ali eksplicitna
+   * bool-provera cita jasnije.
+   */
+  useAnnounceOnChange(
+    resumePromptSeconds != null,
+    resumePromptSeconds != null
+      ? `Ponuda: nastavi gledanje od ${formatTime(resumePromptSeconds)}`
+      : null,
+    announce,
+  );
 
   // Pozicija se objavljuje tek kad premotavanje slegne, sa odlaganjem — vidi
   // `POSITION_ANNOUNCE_DELAY_MS`. Prevlacenje klizaca ovde NE ucestvuje: njega
@@ -210,10 +244,18 @@ export function PlayerSurface({
           break;
         case "f":
         case "F":
+          // Isti gard kao "c" ispod: fokus moze da bude na <select> za font
+          // (opcija "Monospejs") u modalu za podesavanja titlova — bez garda
+          // bi F usred prevlacenja klizaca u tom modalu neocekivano gasio/
+          // palio fullscreen.
+          if (inFormControl) return;
           actions.toggleFullscreen();
           break;
         case "m":
         case "M":
+          // Isto: "M" je type-ahead precica za opciju "Monospejs" u <select>-u
+          // za font — bez garda bi umesto toga utisavala zvuk.
+          if (inFormControl) return;
           actions.toggleMute();
           break;
         case "c":
@@ -301,7 +343,7 @@ export function PlayerSurface({
           <CaptionOverlay
             videoRef={videoRef}
             activeTextTrack={state.activeTextTrack}
-            scale={captionScale}
+            prefs={captionPrefs}
           />
 
           {overlay}
@@ -346,12 +388,28 @@ export function PlayerSurface({
             <PlayerControls
               state={state}
               actions={actions}
-              captionScale={captionScale}
-              onCaptionScaleChange={onCaptionScaleChange}
+              captionSettingsOpen={captionSettingsOpen}
+              onOpenCaptionSettings={() => setCaptionSettingsOpen(true)}
+              captionSettingsTriggerRef={captionSettingsTriggerRef}
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
             />
           </div>
+
+          {/*
+            Van `inert` omotaca iznad, namerno: modal mora da ostane
+            fokusabilan i vidljiv bez obzira na stanje auto-skrivanja kontrola
+            (koje smo uz to i suspendovali dok je otvoren — vidi efekat gore).
+          */}
+          <CaptionSettingsModal
+            open={captionSettingsOpen}
+            onClose={closeCaptionSettings}
+            portalTarget={containerRef}
+            triggerRef={captionSettingsTriggerRef}
+            prefs={captionPrefs}
+            onChange={onCaptionPrefsChange}
+            onReset={onResetCaptionPrefs}
+          />
         </>
       )}
     </div>

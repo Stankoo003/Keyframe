@@ -1,9 +1,17 @@
+import { config as loadEnv } from "dotenv";
+
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 /** Kriterijum: "an automated a11y check passes". */
 
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+
+// Vidi isto ucitavanje i obrazlozenje u admin-keyboard.spec.ts.
+loadEnv({ path: ".env.local", quiet: true });
+
+const ADMIN_PASSWORD = process.env["ADMIN_PASSWORD"];
+if (!ADMIN_PASSWORD) throw new Error(".env.local nema ADMIN_PASSWORD — vidi .env.example");
 
 async function waitForMetadata(page: Page): Promise<void> {
   await page.waitForFunction(() => {
@@ -44,5 +52,21 @@ test("detalj bez titlova nema axe prekršaje", async ({ page }) => {
     .disableRules(["video-caption"])
     .analyze();
 
+  expect(violations).toEqual([]);
+});
+
+test("admin login nema axe prekršaje", async ({ page }) => {
+  await page.goto("/admin/login");
+  const { violations } = await new AxeBuilder({ page }).withTags(WCAG).analyze();
+  expect(violations).toEqual([]);
+});
+
+test("admin panel (prijavljen) nema axe prekršaje", async ({ page }) => {
+  await page.goto("/admin/login");
+  await page.getByLabel("Lozinka").fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Prijavi se" }).click();
+  await page.waitForURL("/admin");
+
+  const { violations } = await new AxeBuilder({ page }).withTags(WCAG).analyze();
   expect(violations).toEqual([]);
 });
