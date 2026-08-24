@@ -39,6 +39,13 @@ export type PlayerState = {
   /** Indeks ukljucene staze, ili -1 kad su titlovi ugaseni. */
   activeTextTrack: number;
   error: string | null;
+  /**
+   * Engine automatski pokusava oporavak (npr. mrezni prekid) — UI ovo
+   * prikazuje kao nenametljiv baner, NE kao punu gresku. `error` i
+   * `recovering` se medjusobno iskljucuju: kad je oporavak neuspesan,
+   * engine emituje `error` i `recovering` se vraca na `false`.
+   */
+  recovering: boolean;
 };
 
 /** Akcije koje UI zove; ne otkrivaju ni <video> ni engine. */
@@ -58,6 +65,12 @@ export type PlayerActions = {
   /** Pali prvu stazu ili gasi tekucu. Bez staza ne radi nista. */
   toggleCaptions: () => void;
   toggleFullscreen: () => void;
+  /**
+   * Rucni "Pokušaj ponovo" — SAMO za `state.error` (neoporavivo stanje).
+   * Automatski oporavak ide kroz engine-ov interni retry, bez ovoga — ovo
+   * forsira punu rekreaciju engine-a (nov manifest fetch od nule).
+   */
+  retryPlayback: () => void;
 };
 
 const INITIAL: PlayerState = {
@@ -77,6 +90,7 @@ const INITIAL: PlayerState = {
   textTracks: [],
   activeTextTrack: -1,
   error: null,
+  recovering: false,
 };
 
 /** Ogranici vrednost na [min, max]. */
@@ -123,6 +137,12 @@ export function usePlayer(src: string) {
    */
   const pendingSeekRef = useRef<number | null>(null);
   const [state, setState] = useState<PlayerState>(INITIAL);
+  /**
+   * Rucni retry posle neoporavive greske — inkrement forsira efekat ispod
+   * da ponovo napravi engine (isti obrazac kao promena `src`), jer `src`
+   * sam po sebi ostaje nepromenjen.
+   */
+  const [retryNonce, setRetryNonce] = useState(0);
 
   /**
    * Lanac kroz koji se kreiranje engine-a serijalizuje.
@@ -176,7 +196,11 @@ export function usePlayer(src: string) {
         created.subscribe((event) => {
           if (event.type === "levels") patch({ levels: event.levels });
           else if (event.type === "levelswitched") patch({ currentLevel: event.level });
-          else if (event.type === "error") patch({ error: event.message });
+          else if (event.type === "recovering") patch({ recovering: true });
+          else if (event.type === "recovered") patch({ recovering: false });
+          else if (event.type === "error") patch({ error: event.message, recovering: false });
+          // "degraded" ne trazi posebno UI polje — `levels`/`currentLevel"
+          // patch iznad vec pokriva sta korisnik treba da vidi.
         });
       } catch (err: unknown) {
         if (!disposed) patch({ error: err instanceof Error ? err.message : String(err) });
@@ -190,7 +214,7 @@ export function usePlayer(src: string) {
       engine?.destroy();
       engineRef.current = null;
     };
-  }, [src, patch]);
+  }, [src, retryNonce, patch]);
 
   // Pretplata na <video> DOM evente za transport-stanje.
   useEffect(() => {
@@ -438,6 +462,7 @@ export function usePlayer(src: string) {
       if (document.fullscreenElement) void document.exitFullscreen();
       else void container.requestFullscreen();
     }, []),
+    retryPlayback: useCallback(() => setRetryNonce((n) => n + 1), []),
   };
 
   return { videoRef, containerRef, state, actions };
