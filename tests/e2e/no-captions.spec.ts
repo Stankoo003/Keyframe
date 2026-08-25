@@ -21,9 +21,10 @@ test("bez titla je kontrola onemogućena, a ne prazan prekidač", async ({ page 
   await cc.evaluate((el) => el.focus());
   await expect(cc).not.toBeFocused();
 
-  // Podešavanja titlova prate isto pravilo: bez staze nema šta da se podešava,
-  // pa dugme nije ni prazna kontrola ni suvišna stanica pri tabovanju.
-  await expect(page.getByRole("button", { name: "Podešavanja titlova" })).toBeDisabled();
+  // Panel titlova NE prati isto pravilo, i to je namerno: u njemu stoji
+  // učitavanje sopstvenog fajla, pa je snimak bez staza upravo slučaj u kom
+  // mora da se otvori. Onemogućen bi zatvorio jedini put do svog titla.
+  await expect(page.getByRole("button", { name: "Podešavanja titlova" })).toBeEnabled();
 });
 
 test("prečica C ne radi ništa kad nema titlova", async ({ page }) => {

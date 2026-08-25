@@ -24,6 +24,7 @@ import {
 } from "@/lib/caption-prefs";
 
 import { useFocusTrap } from "./use-focus-trap";
+import type { PlayerState } from "./use-player";
 
 const EDGE_LABELS: Record<CaptionEdgeStyle, string> = {
   none: "Bez ivice",
@@ -51,7 +52,12 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 /**
- * Podesavanja izgleda titlova — prvi modal u app-u.
+ * Titlovi: izbor staze, ucitavanje sopstvenog fajla i izgled — na jednom mestu.
+ *
+ * Izbor i ucitavanje su ovde, a ne u traci sa kontrolama: traka se na 390px vec
+ * prelama u dva reda, a padajuci spisak staza i dugme za fajl su dve kontrole
+ * koje gledalac dodirne jednom po snimku. Skupljene u panel, traka ostaje citka,
+ * a sve oko titlova stoji zajedno.
  *
  * Portal-uje se u `portalTarget` (kontejner plejera), NE u `document.body`:
  * u fullscreen-u se crta SAMO podstablo elementa koji je otisao u fullscreen,
@@ -69,6 +75,12 @@ export function CaptionSettingsModal({
   prefs,
   onChange,
   onReset,
+  tracks,
+  activeTrack,
+  onSelectTrack,
+  onSubtitleFile,
+  localSubtitleName,
+  onClearLocalSubtitle,
 }: {
   open: boolean;
   onClose: () => void;
@@ -78,6 +90,15 @@ export function CaptionSettingsModal({
   prefs: CaptionPrefs;
   onChange: (patch: Partial<CaptionPrefs>) => void;
   onReset: () => void;
+  /** Staze snimka + eventualni ucitani fajl gledaoca. */
+  tracks: PlayerState["textTracks"];
+  /** Index aktivne staze, ili -1. */
+  activeTrack: number;
+  onSelectTrack: (index: number) => void;
+  onSubtitleFile: (file: File) => void;
+  /** Ime ucitanog fajla, ili `null` kad ga nema. */
+  localSubtitleName: string | null;
+  onClearLocalSubtitle: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +155,17 @@ export function CaptionSettingsModal({
             Ovako izgledaju titlovi
           </span>
         </div>
+
+        <SubtitleSourceField
+          tracks={tracks}
+          activeTrack={activeTrack}
+          onSelectTrack={onSelectTrack}
+          onSubtitleFile={onSubtitleFile}
+          localSubtitleName={localSubtitleName}
+          onClearLocalSubtitle={onClearLocalSubtitle}
+        />
+
+        <hr className="border-kf-line-soft" />
 
         <Field label="Veličina fonta" value={`${prefs.fontSizePct}%`}>
           <input
@@ -213,7 +245,11 @@ export function CaptionSettingsModal({
 
         <Field
           label="Pomeraj (sinhronizacija)"
-          value={prefs.delaySeconds === 0 ? "0 s" : `${prefs.delaySeconds > 0 ? "+" : ""}${prefs.delaySeconds.toFixed(1)} s`}
+          value={
+            prefs.delaySeconds === 0
+              ? "0 s"
+              : `${prefs.delaySeconds > 0 ? "+" : ""}${prefs.delaySeconds.toFixed(1)} s`
+          }
         >
           <input
             type="range"
@@ -234,7 +270,7 @@ export function CaptionSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="bg-kf-accent text-kf-accent-ink hover:brightness-110 cursor-pointer rounded-lg px-3 py-1.5 font-mono text-[11px] leading-none tracking-[0.06em] transition-[filter]"
+            className="bg-kf-accent text-kf-accent-ink cursor-pointer rounded-lg px-3 py-1.5 font-mono text-[11px] leading-none tracking-[0.06em] transition-[filter] hover:brightness-110"
           >
             Gotovo
           </button>
@@ -242,6 +278,108 @@ export function CaptionSettingsModal({
       </div>
     </div>,
     portalTarget.current,
+  );
+}
+
+/**
+ * Izbor staze + ucitavanje sopstvenog titla.
+ *
+ * Dugme za fajl NIKAD nije onemoguceno — snimak bez ijedne staze je glavni
+ * razlog zasto bi gledalac uopste doneo svoj fajl. Iz istog razloga ni dugme
+ * koje otvara ovaj modal vise ne sme da bude onemoguceno (vidi
+ * `CaptionSettingsButton` u `player-controls.tsx`).
+ *
+ * `<input type="file">` je skriven a dugme ga klikom otvara: nativni input se
+ * ne da stilizovati, a `sr-only` (ne `display:none`) ga ostavlja u DOM-u da bi
+ * Playwright `setInputFiles` i alati za pristupacnost i dalje radili sa njim.
+ *
+ * `event.target.value = ""` posle izbora: bez toga ponovni izbor ISTOG fajla ne
+ * bi okinuo `change`, pa bi drugi pokusaj posle greske delovao kao da je zamrzao.
+ */
+function SubtitleSourceField({
+  tracks,
+  activeTrack,
+  onSelectTrack,
+  onSubtitleFile,
+  localSubtitleName,
+  onClearLocalSubtitle,
+}: {
+  tracks: PlayerState["textTracks"];
+  activeTrack: number;
+  onSelectTrack: (index: number) => void;
+  onSubtitleFile: (file: File) => void;
+  localSubtitleName: string | null;
+  onClearLocalSubtitle: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-kf-ink3">Titl</span>
+
+      {tracks.length === 0 ? (
+        <p className="text-kf-mut text-[12px] leading-[1.5]">
+          Ovaj snimak nema titlove. Možeš učitati svoj <code>.srt</code> ili <code>.vtt</code> fajl.
+        </p>
+      ) : (
+        <select
+          aria-label="Izbor titla"
+          value={activeTrack}
+          onChange={(event) => onSelectTrack(Number(event.target.value))}
+          className={`${SELECT} w-full`}
+        >
+          <option value={-1}>Bez titla</option>
+          {tracks.map((track) => (
+            <option key={track.index} value={track.index}>
+              {track.label || track.lang || `Staza ${track.index + 1}`}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".srt,.vtt,text/vtt,application/x-subrip"
+        aria-label="Titl fajl sa računara"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onSubtitleFile(file);
+          event.target.value = "";
+        }}
+        className="sr-only"
+      />
+
+      <div className="mt-1 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          aria-label={localSubtitleName ? "Zameni svoj titl" : "Učitaj svoj titl"}
+          title={
+            localSubtitleName
+              ? `Učitano: ${localSubtitleName} — klikni da zameniš`
+              : "Učitaj svoj titl (.srt ili .vtt)"
+          }
+          data-on={localSubtitleName != null}
+          className={`${PILL_SMALL} data-[on=true]:border-kf-accent data-[on=true]:text-kf-accent`}
+        >
+          {/* `aria-hidden`: ime dugmeta je iskljucivo `aria-label` iznad. */}
+          <span aria-hidden="true">CC+ sa računara</span>
+        </button>
+
+        {localSubtitleName && (
+          <button
+            type="button"
+            onClick={onClearLocalSubtitle}
+            aria-label="Ukloni moj titl"
+            title="Ukloni moj titl"
+            className={PILL_SMALL}
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -4,8 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
  * Kriterijum: gledalac moze da ucita SVOJ titl u plejer, bez servera.
  *
  * Fixture je clip-01-bars — snimak koji NEMA titlove (vidi no-captions.spec.ts).
- * To je i poenta: kontrola za ucitavanje mora da radi bas tamo gde su ostale
- * kontrole za titlove onemogucene.
+ * To je i poenta: ucitavanje mora da radi bas tamo gde je CC prekidac onemogucen.
+ *
+ * Izbor staze i ucitavanje zive u panelu titlova, pa ga svaki test prvo otvara.
  *
  * Fajl koji se ucitava je commit-ovan `clip-03-fractal.sr.srt`; njegov poslednji
  * cue je na 19.8s, a clip-01-bars traje 24s, pa `srtToVtt` nema sta da odseca.
@@ -15,6 +16,12 @@ const CUE = { atSeconds: 13, contains: "Dubinski zum" };
 
 const uploadInput = (page: Page) => page.getByLabel("Titl fajl sa računara");
 const ccButton = (page: Page) => page.getByRole("button", { name: /^Titlovi/ });
+
+/** Panel je jedini put do izbora staze i do `<input type="file">`. */
+async function openCaptionPanel(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Podešavanja titlova" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+}
 
 async function waitForMetadata(page: Page): Promise<void> {
   await page.waitForFunction(() => {
@@ -26,15 +33,18 @@ async function waitForMetadata(page: Page): Promise<void> {
 test.beforeEach(async ({ page }) => {
   await page.goto("/videos/clip-01-bars");
   await waitForMetadata(page);
+  await openCaptionPanel(page);
 });
 
 test("dugme za učitavanje radi i kad snimak nema titlove", async ({ page }) => {
-  // Ostale kontrole za titlove su onemogucene — to je postojece ponasanje.
+  // CC prekidac je onemogucen — nema sta da se pali.
   await expect(ccButton(page)).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Podešavanja titlova" })).toBeDisabled();
 
-  // Ova NIJE: bez nje se korisnikov titl ne bi imao odakle ucitati.
+  // Panel to NE prati: bez njega se korisnikov titl ne bi imao odakle ucitati.
   await expect(page.getByRole("button", { name: "Učitaj svoj titl" })).toBeEnabled();
+  // Bez staza nema ni padajuceg spiska — umesto praznog stoji objasnjenje.
+  await expect(page.getByRole("combobox", { name: "Izbor titla" })).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toContainText("nema titlove");
 });
 
 test("učitan SRT se konvertuje u blob i odmah se pali", async ({ page }) => {
@@ -92,9 +102,10 @@ test("neispravan fajl daje poruku, a plejer nastavlja da radi", async ({ page })
 test("kad postoje dva titla, lista nudi izbor i vraćanje na zvanični", async ({ page }) => {
   await page.goto("/videos/clip-03-fractal");
   await waitForMetadata(page);
+  await openCaptionPanel(page);
 
-  // Sa jednom stazom lista ne postoji — CC dugme je tad dovoljno.
-  await expect(page.getByRole("combobox", { name: "Izbor titla" })).toHaveCount(0);
+  // Sa jednom stazom spisak vec postoji — u panelu je i izbor "Bez titla".
+  await expect(page.getByRole("combobox", { name: "Izbor titla" })).toHaveValue("-1");
 
   await uploadInput(page).setInputFiles(SRT);
 

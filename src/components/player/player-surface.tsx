@@ -458,9 +458,6 @@ export function PlayerSurface({
               captionSettingsOpen={captionSettingsOpen}
               onOpenCaptionSettings={() => setCaptionSettingsOpen(true)}
               captionSettingsTriggerRef={captionSettingsTriggerRef}
-              onSubtitleFile={(file) => void localSubtitle.load(file)}
-              localSubtitleName={localSubtitle.track?.label ?? null}
-              onClearLocalSubtitle={localSubtitle.clear}
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
               thumbnails={thumbnails}
@@ -480,6 +477,12 @@ export function PlayerSurface({
             prefs={captionPrefs}
             onChange={onCaptionPrefsChange}
             onReset={onResetCaptionPrefs}
+            tracks={state.textTracks}
+            activeTrack={state.activeTextTrack}
+            onSelectTrack={actions.setTextTrack}
+            onSubtitleFile={(file) => void localSubtitle.load(file)}
+            localSubtitleName={localSubtitle.track?.label ?? null}
+            onClearLocalSubtitle={localSubtitle.clear}
           />
         </>
       )}
