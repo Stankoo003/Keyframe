@@ -181,6 +181,13 @@ ffmpeg -y -hide_banner -loglevel error \
   -frames:v 1 -vf "scale=640:-2" -q:v 3 \
   "$OUT/poster.jpg"
 
+# ── Sličice za seek traku ─────────────────────────────────────────────────────
+#
+# Izdvojeno u zaseban skript da bi isto moglo da se pokrene i nad vec objavljenim
+# videom, bez re-enkodiranja (`scripts/make-thumbs.sh --slug <slug>`).
+
+"$(dirname "${BASH_SOURCE[0]}")/make-thumbs.sh" "$SRC" "$OUT"
+
 # ── Rezime ────────────────────────────────────────────────────────────────────
 
 echo

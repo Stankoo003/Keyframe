@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { formatTime } from "@/lib/format";
 
 import { PLAYBACK_RATES, SEEK_STEP_SECONDS } from "./constants";
+import { cueAt } from "./thumbnails";
+import type { ThumbnailMap } from "./use-thumbnails";
 import type { PlayerActions, PlayerState } from "./use-player";
 
 /**
@@ -30,6 +32,7 @@ export function PlayerControls({
   onClearLocalSubtitle,
   chapterStarts = [],
   currentChapter = -1,
+  thumbnails,
 }: {
   state: PlayerState;
   actions: PlayerActions;
@@ -47,10 +50,34 @@ export function PlayerControls({
   chapterStarts?: readonly number[];
   /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
   currentChapter?: number;
+  /** Sličice snimka. Prazna mapa = preview se ne crta. */
+  thumbnails: ThumbnailMap;
 }) {
   const { playing, currentTime, duration, bufferedRanges, volume, muted, playbackRate } = state;
 
   const pct = (seconds: number) => (duration > 0 ? (seconds / duration) * 100 : 0);
+
+  /*
+   * Hover preview iznad trake: {vreme, x u pikselima}, ili `null` kad misa nema.
+   * Piksel se pamti uz vreme da kartica ne bi morala da racuna nazad iz procenta
+   * — pozicija joj se klampuje na sirinu trake, a to se radi u pikselima.
+   */
+  const [hover, setHover] = useState<{ time: number; x: number } | null>(null);
+  const hoverCue = hover === null ? null : cueAt(thumbnails.cues, hover.time);
+
+  const onSeekBarPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    // Na dodir se preview ne prikazuje: kartica bi stajala tacno ispod prsta,
+    // pokrila bi traku i tukla se sa prevlacenjem.
+    if (event.pointerType === "touch") return;
+    if (duration <= 0 || thumbnails.cues.length === 0) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width === 0) return;
+
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    setHover({ time: ratio * duration, x: ratio * rect.width });
+  };
+
 
   return (
     /*
@@ -64,7 +91,49 @@ export function PlayerControls({
        * lezi preko — tako klik, prevlacenje, tastatura i citac ekrana i dalje
        * idu kroz nativnu kontrolu, bez rucnog racunanja pozicije misa.
        */}
-      <div className="relative flex h-5.5 items-center">
+      <div
+        className="relative flex h-5.5 items-center"
+        onPointerMove={onSeekBarPointerMove}
+        onPointerLeave={() => setHover(null)}
+        onPointerCancel={() => setHover(null)}
+      >
+        {/*
+         * Preview sličice.
+         *
+         * `pointer-events-none` je obavezno: kartica stoji iznad providnog
+         * <input>-a, a da hvata pointer, pojava kartice bi u istom trenutku
+         * prekinula prevlacenje koje ju je i izazvalo.
+         *
+         * `aria-hidden` jer citac ekrana vec dobija poziciju kroz
+         * `aria-valuetext` na inputu — ovo bi bio duplikat iste informacije.
+         */}
+        {hover !== null && hoverCue !== null && (
+          <div
+            aria-hidden="true"
+            data-testid="thumbnail-preview"
+            className="border-kf-line-strong rounded-kf-thumb pointer-events-none absolute bottom-full z-20 mb-2 flex -translate-x-1/2 flex-col items-center gap-1 border bg-[rgba(8,9,11,.92)] p-1"
+            style={{
+              // Klampovanje na pola sirine kartice sa svake strane, da na
+              // krajevima trake ne izadje iz kadra.
+              left: `clamp(${hoverCue.w / 2 + 4}px, ${hover.x}px, calc(100% - ${hoverCue.w / 2 + 4}px))`,
+            }}
+          >
+            <div
+              data-testid="thumbnail-image"
+              className="rounded-kf-thumb bg-white/6"
+              style={{
+                width: hoverCue.w,
+                height: hoverCue.h,
+                backgroundImage: `url("${hoverCue.src}")`,
+                backgroundPosition: `-${hoverCue.x}px -${hoverCue.y}px`,
+              }}
+            />
+            <span className="font-mono text-[12px] whitespace-nowrap text-white tabular-nums">
+              {formatTime(hover.time)}
+            </span>
+          </div>
+        )}
+
         <div className="pointer-events-none absolute inset-x-0 h-1 overflow-hidden rounded-[3px] bg-white/16">
           {/* SVI preuzeti opsezi — posle premotavanja se vide praznine među njima. */}
           {bufferedRanges.map((range) => (

@@ -112,6 +112,22 @@ aws s3 cp "$SOURCE_DIR" "$DEST" \
   --endpoint-url "$ENDPOINT" \
   $DRY_RUN
 
+# ── Prolaz 3b: thumbs.vtt ─────────────────────────────────────────────────────
+#
+# Poseban prolaz jer .vtt iz hls/ nije titl nego mapa sličica za seek traku, pa
+# ne moze da ide zajedno sa Prolazom 4 (druga destinacija i drugi max-age).
+# Menja se samo pri re-enkodiranju, kao i poster — otuda isti max-age.
+
+echo
+echo "── .vtt (slicice) → text/vtt"
+aws s3 cp "$SOURCE_DIR" "$DEST" \
+  --recursive \
+  --exclude "*" --include "*.vtt" \
+  --content-type "text/vtt; charset=utf-8" \
+  --cache-control "public, max-age=86400" \
+  --endpoint-url "$ENDPOINT" \
+  $DRY_RUN
+
 fi
 
 # ── Prolaz 4: titlovi ─────────────────────────────────────────────────────────

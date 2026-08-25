@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChapterList } from "@/components/chapter-list";
 import type { ChapterDto, SubtitleDto } from "@/domain/video";
 import { currentChapterIndex } from "@/lib/format";
+import { thumbnailsUrl } from "@/lib/media";
 import { clearProgress, readProgress, saveProgress } from "@/lib/playback-progress";
 
 import { PlayerSurface } from "./player-surface";
 import { ResumePrompt } from "./resume-prompt";
 import { usePlayer } from "./use-player";
+import { useThumbnails } from "./use-thumbnails";
 
 /** Koliko cesto se pozicija upisuje dok video svira. */
 const SAVE_INTERVAL_MS = 5000;
@@ -50,6 +52,13 @@ export function PlayerStage({
 }) {
   const player = usePlayer(src);
   const { state, actions } = player;
+
+  /*
+   * Sličice se nalaze po konvenciji, pored manifesta — nema kolone u bazi, pa
+   * ni `VideoDetail` ni `page.tsx` ne moraju da znaju za njih. Kad ih nema,
+   * hook vrati prazan niz i hover preview se prosto ne pojavljuje.
+   */
+  const thumbnails = useThumbnails(useMemo(() => thumbnailsUrl(src), [src]));
 
   const starts = useMemo(() => chapters.map((chapter) => chapter.startSeconds), [chapters]);
   const activeChapter = currentChapterIndex(starts, state.currentTime);
@@ -151,6 +160,7 @@ export function PlayerStage({
         poster={poster}
         chapterStarts={starts}
         currentChapter={activeChapter}
+        thumbnails={thumbnails}
         subtitles={subtitles}
         resumePromptSeconds={showResume ? savedPosition : null}
         overlay={
@@ -170,6 +180,7 @@ export function PlayerStage({
       <ChapterList
         chapters={chapters}
         durationSeconds={durationSeconds}
+        thumbnails={thumbnails}
         activeIndex={activeChapter}
         onSeek={actions.seek}
       />

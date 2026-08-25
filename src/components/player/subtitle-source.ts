@@ -103,8 +103,13 @@ export function detectSubtitleFormat(text: string): SubtitleFormat {
   throw new SubtitleError("Fajl nije prepoznat ni kao WebVTT ni kao SRT.");
 }
 
-/** `HH:MM:SS,mmm`, uz toleranciju na tacku, jednocifrene sate i `MM:SS,mmm`. */
-function parseTimestamp(raw: string): number | null {
+/**
+ * `HH:MM:SS,mmm`, uz toleranciju na tacku, jednocifrene sate i `MM:SS,mmm`.
+ *
+ * Eksportovano jer isti oblik vremena stoji i u `thumbs.vtt` mapi sličica
+ * (`./thumbnails.ts`) — jedan parser umesto dve kopije koje bi se razisle.
+ */
+export function parseTimestamp(raw: string): number | null {
   const match = /^(?:(\d{1,3}):)?(\d{1,2}):(\d{1,2})[,.](\d{1,3})$/.exec(raw.trim());
   if (!match) return null;
 

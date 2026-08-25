@@ -88,7 +88,34 @@ for rel in "${PLAYLISTS[@]}"; do
   fi
 done
 
-# ── 3. Keyframe alignment ─────────────────────────────────────────────────────
+# ── 3. Sličice za seek traku ──────────────────────────────────────────────────
+#
+# Nedostatak sličica ne kvari reprodukciju (plejer tiho preskace hover preview),
+# ali jeste znak da je enkodiranje raden starijom verzijom skripta.
+
+echo
+echo "slicice"
+
+if [[ -f "$DIR/thumbs.jpg" ]]; then
+  pass "thumbs.jpg postoji"
+else
+  fail "nema thumbs.jpg"
+fi
+
+if [[ ! -f "$DIR/thumbs.vtt" ]]; then
+  fail "nema thumbs.vtt"
+elif ! head -n 1 "$DIR/thumbs.vtt" | grep -q '^WEBVTT'; then
+  fail "thumbs.vtt ne pocinje sa WEBVTT"
+else
+  cues="$(grep -c '#xywh=' "$DIR/thumbs.vtt" || true)"
+  if [[ "$cues" -lt 1 ]]; then
+    fail "thumbs.vtt nema nijedan cue sa #xywh="
+  else
+    pass "thumbs.vtt — $cues slicica"
+  fi
+fi
+
+# ── 4. Keyframe alignment ─────────────────────────────────────────────────────
 #
 # Za svaku varijantu izvlacimo vremena svih keyframe-ova (I-frejmova) i
 # poredimo ih sa prvom varijantom. Moraju biti identicna do na 1ms.

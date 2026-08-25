@@ -29,6 +29,7 @@
     "media:encode": "scripts/encode.sh",
     "media:encode:all": "scripts/encode-all.sh",
     "media:captions": "scripts/make-captions.sh",
+    "media:thumbs": "scripts/make-thumbs.sh",
     "media:verify": "scripts/verify-hls.sh",
     "media:build": "npm run media:clips && npm run media:encode:all",
     "media:sync": "scripts/sync-r2.sh",

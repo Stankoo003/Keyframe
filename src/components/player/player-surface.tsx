@@ -20,6 +20,7 @@ import { PlayerControls } from "./player-controls";
 import { useAnnouncer, useAnnounceOnChange } from "./use-announcer";
 import { useLocalSubtitle } from "./use-local-subtitle";
 import { useSubtitleTracks } from "./use-subtitle-tracks";
+import type { ThumbnailMap } from "./use-thumbnails";
 import type { PlayerActions, PlayerState } from "./use-player";
 
 /** Koliko se ceka pre objave pozicije — vidi `useAnnouncer`. */
@@ -42,6 +43,7 @@ export function PlayerSurface({
   poster,
   chapterStarts,
   currentChapter,
+  thumbnails,
   overlay,
   resumePromptSeconds = null,
   subtitles = [],
@@ -58,6 +60,8 @@ export function PlayerSurface({
   chapterStarts?: readonly number[];
   /** Index tekuceg poglavlja; njegova crtica se boji u cyan. */
   currentChapter?: number;
+  /** Sličice snimka; prosledjuju se kontrolama. Prazna mapa = nema preview-a. */
+  thumbnails: ThumbnailMap;
   /** Npr. ponuda za nastavak gledanja — crta se preko slike, iznad kontrola. */
   overlay?: React.ReactNode;
   /**
@@ -94,9 +98,7 @@ export function PlayerSurface({
    * po redosledu <track> elemenata u DOM-u — ubacivanje na pocetak bi promenilo
    * znacenje svakog vec zapamcenog indeksa.
    */
-  const allTracks = localSubtitle.track
-    ? [...subtitleTracks, localSubtitle.track]
-    : subtitleTracks;
+  const allTracks = localSubtitle.track ? [...subtitleTracks, localSubtitle.track] : subtitleTracks;
 
   /**
    * Nov <track> u DOM-u ne emituje nikakav dogadjaj na <video>, pa se otkrivanje
@@ -461,6 +463,7 @@ export function PlayerSurface({
               onClearLocalSubtitle={localSubtitle.clear}
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
+              thumbnails={thumbnails}
             />
           </div>
 

@@ -28,3 +28,19 @@ export function mediaUrl(path: string): string {
   const clean = path.replace(/^\/+/, "");
   return MEDIA_BASE_URL ? `${MEDIA_BASE_URL}/${clean}` : `/media/${clean}`;
 }
+
+/**
+ * URL mape sličica za seek traku, izveden iz URL-a manifesta.
+ *
+ * Konvencija umesto kolone u bazi: `scripts/encode.sh` uvek ostavlja
+ * `thumbs.jpg` i `thumbs.vtt` pored `master.m3u8`, isto kao `poster.jpg`.
+ * Zato nema migracije ni polja u admin formi — video enkodiran starijim
+ * skriptom prosto vrati 404 i plejer tiho ostane bez hover preview-a.
+ *
+ * @example
+ * thumbnailsUrl("/media/hls/clip-01-bars/master.m3u8")
+ * // → "/media/hls/clip-01-bars/thumbs.vtt"
+ */
+export function thumbnailsUrl(manifestUrl: string): string {
+  return manifestUrl.replace(/[^/]+$/, "thumbs.vtt");
+}

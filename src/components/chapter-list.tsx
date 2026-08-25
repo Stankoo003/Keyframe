@@ -5,6 +5,9 @@ import { useEffect, useRef } from "react";
 import type { ChapterDto } from "@/domain/video";
 import { chapterDurations, formatTime } from "@/lib/format";
 
+import { cueAt } from "./player/thumbnails";
+import type { ThumbnailMap } from "./player/use-thumbnails";
+
 /**
  * Poglavlja kao mreza kartica ispod plejera.
  *
@@ -16,17 +19,22 @@ import { chapterDurations, formatTime } from "@/lib/format";
  * Klijentska je jer prima `onSeek` i mora da prati tekuce poglavlje; stanje
  * dobija od `PlayerStage`, ne racuna ga sama.
  *
- * Slicice iz dizajna se ne generisu (nemamo kadrove po poglavlju), pa stoji
- * prugasta povrsina — isti placeholder jezik kao svuda u dizajnu.
+ * Sličica kartice je kadar sa POCETKA poglavlja, isecen iz istog sprite-a koji
+ * hrani preview na seek traci (`scripts/make-thumbs.sh`). Dok sprite ne stigne —
+ * ili kad ga video uopste nema — stoji prugasta povrsina, isti placeholder jezik
+ * kao svuda u dizajnu.
  */
 export function ChapterList({
   chapters,
   durationSeconds,
   activeIndex,
   onSeek,
+  thumbnails,
 }: {
   chapters: readonly ChapterDto[];
   durationSeconds: number;
+  /** Sličice snimka. Prazna mapa = kartice ostaju prugaste. */
+  thumbnails: ThumbnailMap;
   /** Index tekuceg poglavlja, ili -1. */
   activeIndex: number;
   onSeek: (seconds: number) => void;
@@ -69,6 +77,7 @@ export function ChapterList({
         >
           {chapters.map((chapter, index) => {
             const active = index === activeIndex;
+            const cue = cueAt(thumbnails.cues, chapter.startSeconds);
 
             return (
               <li key={chapter.id}>
@@ -80,9 +89,35 @@ export function ChapterList({
                   data-active={active}
                   className="border-kf-line bg-kf-surface data-[active=true]:border-kf-accent-line data-[active=true]:bg-kf-accent-soft hover:border-kf-accent-line focus-visible:outline-kf-accent w-full cursor-pointer rounded-[13px] border p-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
+                  {/*
+                   * Isecak se dobija procentualnim `background-size`-om, ne
+                   * pikselima: kartica je fluidna (grid `auto-fill`), pa bi
+                   * fiksna velicina sprite-a radila samo na jednoj sirini.
+                   * Uz `aspect-video` isecak zadrzava 16:9 na svakoj sirini.
+                   */}
                   <span
                     aria-hidden="true"
-                    className="kf-stripes border-kf-line block h-18.5 rounded-[9px] border"
+                    data-testid="chapter-thumbnail"
+                    className="kf-stripes border-kf-line block aspect-video overflow-hidden rounded-[9px] border bg-cover"
+                    style={
+                      cue === null
+                        ? undefined
+                        : {
+                            backgroundImage: `url("${cue.src}")`,
+                            backgroundSize: `${thumbnails.cols * 100}% ${thumbnails.rows * 100}%`,
+                            // Deljenje sa (n - 1): kod procentualne pozicije 100%
+                            // znaci "poravnaj DESNU ivicu", pa je poslednja
+                            // kolona na 100%, a ne na cols/(cols) * 100.
+                            backgroundPosition: [
+                              thumbnails.cols > 1
+                                ? `${(cue.x / cue.w / (thumbnails.cols - 1)) * 100}%`
+                                : "0%",
+                              thumbnails.rows > 1
+                                ? `${(cue.y / cue.h / (thumbnails.rows - 1)) * 100}%`
+                                : "0%",
+                            ].join(" "),
+                          }
+                    }
                   />
                   <span className="mt-2.5 flex items-baseline justify-between gap-2.5">
                     <span className="text-[14px] leading-[1.3] font-medium tracking-[-0.01em]">
