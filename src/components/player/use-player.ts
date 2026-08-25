@@ -62,6 +62,14 @@ export type PlayerActions = {
   selectLevel: (index: number) => void;
   /** `-1` gasi titlove. Indeks van opsega se ignorise. */
   setTextTrack: (index: number) => void;
+  /**
+   * Ponovo procita <track> elemente u `state.textTracks`.
+   *
+   * Postoji zbog titla koji gledalac ucita sa svog racunara: tada se u DOM doda
+   * nov <track>, a to nije dogadjaj koji <video> emituje — pa se otkrivanje
+   * staza mora pozvati rucno. Vidi `use-local-subtitle.ts`.
+   */
+  refreshTextTracks: () => void;
   /** Pali prvu stazu ili gasi tekucu. Bez staza ne radi nista. */
   toggleCaptions: () => void;
   toggleFullscreen: () => void;
@@ -136,6 +144,8 @@ export function usePlayer(src: string) {
    * `video.currentTime`, koji se jos nije pomerio, pa bi svih pet dalo isti cilj.
    */
   const pendingSeekRef = useRef<number | null>(null);
+  /** Postavlja ga efekat za otkrivanje staza; cita ga `refreshTextTracks`. */
+  const syncTextTracksRef = useRef<(() => void) | null>(null);
   const [state, setState] = useState<PlayerState>(INITIAL);
   /**
    * Rucni retry posle neoporavive greske — inkrement forsira efekat ispod
@@ -303,6 +313,8 @@ export function usePlayer(src: string) {
     };
 
     sync();
+    // Izlaz ka `actions.refreshTextTracks()` — vidi komentar uz tu akciju.
+    syncTextTracksRef.current = sync;
 
     const elements = readTextTracks(video).map(({ el }) => el);
     const onTrackLoad = () => sync();
@@ -333,6 +345,7 @@ export function usePlayer(src: string) {
       });
       video.removeEventListener("loadedmetadata", sync);
       video.removeEventListener("emptied", sync);
+      syncTextTracksRef.current = null;
     };
   }, [src, patch]);
 
@@ -440,6 +453,10 @@ export function usePlayer(src: string) {
         if (index >= prev.textTracks.length) return prev;
         return { ...prev, activeTextTrack: index < 0 ? -1 : index };
       });
+    }, []),
+
+    refreshTextTracks: useCallback(() => {
+      syncTextTracksRef.current?.();
     }, []),
 
     /**

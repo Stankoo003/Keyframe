@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 import { formatTime } from "@/lib/format";
 
 import { PLAYBACK_RATES, SEEK_STEP_SECONDS } from "./constants";
@@ -23,11 +25,19 @@ export function PlayerControls({
   captionSettingsOpen,
   onOpenCaptionSettings,
   captionSettingsTriggerRef,
+  onSubtitleFile,
+  localSubtitleName = null,
+  onClearLocalSubtitle,
   chapterStarts = [],
   currentChapter = -1,
 }: {
   state: PlayerState;
   actions: PlayerActions;
+  /** Gledalac je izabrao `.srt`/`.vtt` sa svog racunara. */
+  onSubtitleFile: (file: File) => void;
+  /** Ime ucitanog fajla, ili `null` kad ga nema — vlasnik stanja je `PlayerSurface`. */
+  localSubtitleName?: string | null;
+  onClearLocalSubtitle: () => void;
   /** Da li je modal za podesavanja titlova otvoren; vlasnik stanja je `PlayerSurface`. */
   captionSettingsOpen: boolean;
   onOpenCaptionSettings: () => void;
@@ -174,6 +184,14 @@ export function PlayerControls({
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <CaptionsButton state={state} onToggle={actions.toggleCaptions} />
 
+          <TrackSelect state={state} onSelect={actions.setTextTrack} />
+
+          <SubtitleUploadButton
+            onFile={onSubtitleFile}
+            loadedName={localSubtitleName}
+            onClear={onClearLocalSubtitle}
+          />
+
           <CaptionSettingsButton
             state={state}
             open={captionSettingsOpen}
@@ -249,6 +267,112 @@ function SkipButton({ onClick, delta }: { onClick: () => void; delta: number }) 
        */}
       <span aria-hidden="true">{label}</span>
     </button>
+  );
+}
+
+/**
+ * Izbor staze titla — pojavljuje se TEK kad staza ima vise od jedne.
+ *
+ * Sa jednom stazom je `CaptionsButton` sve sto treba (upali/ugasi), pa bi lista
+ * sa jednom opcijom bila prazna kontrola — isto pravilo koje vec vazi za
+ * `QualitySelect` kad engine ne izlaze ladder. Do dve staze se dolazi tek kad
+ * gledalac ucita svoj titl pored zvanicnog, ili kad snimak ima vise jezika.
+ */
+function TrackSelect({
+  state,
+  onSelect,
+}: {
+  state: PlayerState;
+  onSelect: (index: number) => void;
+}) {
+  if (state.textTracks.length < 2) return null;
+
+  return (
+    <select
+      aria-label="Izbor titla"
+      title="Izbor titla"
+      value={state.activeTextTrack}
+      onChange={(event) => onSelect(Number(event.target.value))}
+      className={`${PILL} max-w-40`}
+    >
+      <option value={-1}>Bez titla</option>
+      {state.textTracks.map((track) => (
+        <option key={track.index} value={track.index}>
+          {track.label || track.lang || `Staza ${track.index + 1}`}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/**
+ * Ucitavanje sopstvenog titla sa racunara.
+ *
+ * NIKAD nije onemoguceno — za razliku od `CaptionsButton` i
+ * `CaptionSettingsButton`, koji se gase kad snimak nema staze. Upravo tada ovo
+ * dugme i ima najvise smisla: snimak bez titla je glavni razlog zasto bi
+ * gledalac uopste doneo svoj fajl.
+ *
+ * `<input type="file">` je skriven a dugme ga klikom otvara: nativni input se
+ * ne da stilizovati u pilulu iz dizajna, a `sr-only` (ne `display:none`) ga
+ * ostavlja u DOM-u da bi Playwright `setInputFiles` i alati za pristupacnost
+ * i dalje radili sa njim.
+ *
+ * `event.target.value = ""` posle izbora: bez toga bi ponovni izbor ISTOG fajla
+ * bio tih — `change` se ne emituje kad se vrednost ne promeni, pa se ispravljen
+ * fajl ne bi mogao ucitati drugi put pod istim imenom.
+ */
+function SubtitleUploadButton({
+  onFile,
+  loadedName,
+  onClear,
+}: {
+  onFile: (file: File) => void;
+  loadedName: string | null;
+  onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".srt,.vtt,text/vtt,application/x-subrip"
+        aria-label="Titl fajl sa računara"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onFile(file);
+          event.target.value = "";
+        }}
+        className="sr-only"
+      />
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        aria-label={loadedName ? "Zameni svoj titl" : "Učitaj svoj titl"}
+        title={loadedName ? `Učitano: ${loadedName} — klikni da zameniš` : "Učitaj svoj titl (.srt ili .vtt)"}
+        data-on={loadedName != null}
+        className={`${PILL} data-[on=true]:border-kf-accent data-[on=true]:text-kf-accent`}
+      >
+        {/* `aria-hidden`: ime dugmeta je iskljucivo `aria-label` iznad — vidi
+            isti obrazac i komentar u `SkipButton`. */}
+        <span aria-hidden="true">CC+</span>
+      </button>
+
+      {loadedName && (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label="Ukloni moj titl"
+          title="Ukloni moj titl"
+          className={PILL}
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
+      )}
+    </span>
   );
 }
 

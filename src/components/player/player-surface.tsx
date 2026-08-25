@@ -18,6 +18,7 @@ import { CaptionSettingsModal } from "./caption-settings-modal";
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
 import { PlayerControls } from "./player-controls";
 import { useAnnouncer, useAnnounceOnChange } from "./use-announcer";
+import { useLocalSubtitle } from "./use-local-subtitle";
 import { useSubtitleTracks } from "./use-subtitle-tracks";
 import type { PlayerActions, PlayerState } from "./use-player";
 
@@ -79,6 +80,43 @@ export function PlayerSurface({
     subtitles,
     videoRef,
   );
+
+  /**
+   * Titl koji je gledalac ucitao sa svog racunara — samo u ovoj sesiji, nista
+   * ne ide na server. Vidi `use-local-subtitle.ts`.
+   */
+  const localSubtitle = useLocalSubtitle(videoRef);
+
+  /**
+   * Korisnikov titl ide na KRAJ liste, ne na pocetak.
+   *
+   * `actions.toggleCaptions` tvrdo pali stazu 0, a `state.textTracks` se indeksira
+   * po redosledu <track> elemenata u DOM-u — ubacivanje na pocetak bi promenilo
+   * znacenje svakog vec zapamcenog indeksa.
+   */
+  const allTracks = localSubtitle.track
+    ? [...subtitleTracks, localSubtitle.track]
+    : subtitleTracks;
+
+  /**
+   * Nov <track> u DOM-u ne emituje nikakav dogadjaj na <video>, pa se otkrivanje
+   * staza mora pozvati rucno — inace bi ucitan titl bio nevidljiv za stanje, a
+   * CC kontrola bi ostala onemogucena. Odmah zatim se staza i pali, jer je
+   * ucitavanje fajla nedvosmislena namera da se titl gleda.
+   *
+   * Okidac je `url`, ne sam objekat: `clear()` ga vraca na `undefined`, sto je i
+   * signal da titlove treba ugasiti.
+   */
+  const localUrl = localSubtitle.track?.url;
+  const localCount = allTracks.length;
+  useEffect(() => {
+    actions.refreshTextTracks();
+    actions.setTextTrack(localUrl ? localCount - 1 : -1);
+    // `actions` je stabilan (sve je `useCallback`), ali ga namerno ne stavljamo
+    // u zavisnosti: okidac sme da bude ISKLJUCIVO promena korisnikovog titla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localUrl]);
+
   const [idle, setIdle] = useState(false);
   const [hasFocusWithin, setHasFocusWithin] = useState(false);
   const [captionSettingsOpen, setCaptionSettingsOpen] = useState(false);
@@ -310,7 +348,7 @@ export function PlayerSurface({
         onClick={actions.togglePlay}
         className="aspect-video w-full cursor-pointer bg-black"
       >
-        {subtitleTracks.map((subtitle) => (
+        {allTracks.map((subtitle) => (
           // kind="captions", ne "subtitles": ovo je transkripcija govora na
           // istom jeziku, a to je razlika koju oba pojma i znace.
           //
@@ -377,7 +415,7 @@ export function PlayerSurface({
             a snimak bez titla je i dalje gledljiv. Zato zasebna, nefatalna
             poruka; CC kontrola u istom slucaju ostaje onemogucena.
           */}
-          {subtitleFailures.length > 0 && (
+          {(subtitleFailures.length > 0 || localSubtitle.error) && (
             <div
               role="status"
               className="text-kf-danger bg-kf-surface/90 absolute top-2 right-2 left-2 rounded px-3 py-2 text-xs"
@@ -387,6 +425,9 @@ export function PlayerSurface({
                   Titl „{failure.label}“ se nije ucitao: {failure.message}
                 </p>
               ))}
+              {/* Neuspeo korisnikov fajl deli isti baner: i ovde je snimak i
+                  dalje gledljiv, pa poruka ne sme da zameni ceo plejer. */}
+              {localSubtitle.error && <p>{localSubtitle.error}</p>}
             </div>
           )}
 
@@ -415,6 +456,9 @@ export function PlayerSurface({
               captionSettingsOpen={captionSettingsOpen}
               onOpenCaptionSettings={() => setCaptionSettingsOpen(true)}
               captionSettingsTriggerRef={captionSettingsTriggerRef}
+              onSubtitleFile={(file) => void localSubtitle.load(file)}
+              localSubtitleName={localSubtitle.track?.label ?? null}
+              onClearLocalSubtitle={localSubtitle.clear}
               chapterStarts={chapterStarts}
               currentChapter={currentChapter}
             />

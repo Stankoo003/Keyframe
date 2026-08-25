@@ -30,6 +30,15 @@ export function logPlayerError(context: {
   message: string;
   url?: string;
 }): void {
-  const { scope, url, ...rest } = context;
-  console.error(`[player:${scope}] ${context.message}`, { ...rest, path: stripQuery(url) });
+  const { scope, url, fatal, ...rest } = context;
+
+  // Ne-fatalne greske idu kao `warn`, ne `error`.
+  //
+  // `bufferSeekOverHole` i slicni su normalan deo rada hls.js-a pri
+  // premotavanju — engine ih resava sam i reprodukcija se ne prekida. Kroz
+  // `console.error` ih Next dev overlay dize u crveni okvir preko cele
+  // stranice, pa bezopasan dogadjaj izgleda kao pad plejera. Fatalne ostaju
+  // `error` i dalje se vide odmah.
+  const log = fatal ? console.error : console.warn;
+  log(`[player:${scope}] ${context.message}`, { ...rest, fatal, path: stripQuery(url) });
 }
