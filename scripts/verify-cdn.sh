@@ -108,7 +108,14 @@ else
 
   echo
   echo "rendition playliste i segmenti"
-  for r in 360p 540p 720p; do
+  # Rezolucije se citaju iz lokalnog izlaza, ne iz fiksne liste — inace bi
+  # dodavanje stepenika u ladder (encode.sh) tiho ostalo neprovereno.
+  RENDITIONS=()
+  while IFS= read -r dir; do
+    [[ -n "$dir" ]] && RENDITIONS+=("$(basename "$dir")")
+  done < <(find "public/media/hls/$CLIP" -mindepth 1 -maxdepth 1 -type d | sort)
+
+  for r in "${RENDITIONS[@]}"; do
     check "$BASE/hls/$CLIP/$r/index.m3u8" "application/vnd.apple.mpegurl" "$r/index.m3u8"
     check "$BASE/hls/$CLIP/$r/seg_000.ts" "video/mp2t" "$r/seg_000.ts"
   done
