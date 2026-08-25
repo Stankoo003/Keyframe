@@ -37,9 +37,12 @@ export function VideoForm({
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="flex max-w-[560px] flex-col gap-4">
+    <form action={formAction} className="grid gap-4 md:grid-cols-2">
       {state.formError && (
-        <p role="alert" className="text-kf-danger border-kf-danger rounded-lg border px-3 py-2 text-[13px]">
+        <p
+          role="alert"
+          className="text-kf-danger border-kf-danger rounded-lg border px-3 py-2 text-[13px] md:col-span-2"
+        >
           {state.formError}
         </p>
       )}
@@ -74,7 +77,7 @@ export function VideoForm({
         <FieldError id="title-error" messages={errors.title} />
       </div>
 
-      <div>
+      <div className="md:col-span-2">
         <label htmlFor="description" className={LABEL}>
           Opis
         </label>
@@ -143,7 +146,7 @@ export function VideoForm({
       <button
         type="submit"
         disabled={pending}
-        className="bg-kf-ink text-kf-accent-ink rounded-kf-btn kf-focus-ring mt-1 cursor-pointer px-4 py-2.5 text-[14px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
+        className="bg-kf-ink text-kf-accent-ink rounded-kf-btn kf-focus-ring mt-1 cursor-pointer justify-self-start px-4 py-2.5 md:col-span-2 text-[14px] font-semibold transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
       >
         {pending ? "Čuvam…" : submitLabel}
       </button>

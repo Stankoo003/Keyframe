@@ -110,8 +110,26 @@ export function ChapterEditor({
         </p>
       )}
 
-      {chapters.length === 0 && (
+      {chapters.length === 0 ? (
         <p className="text-kf-mut text-[13px]">Nema poglavlja — dodaj prvo ispod.</p>
+      ) : (
+        /* Traka iz dizajna: markeri se pomeraju uzivo dok se kuca vreme, jer
+           citaju isti `chapters` state kao i lista ispod. Cisto dekorativna —
+           iste informacije su u listi, pa je `aria-hidden`. */
+        <div
+          aria-hidden="true"
+          className="border-kf-line relative h-14 overflow-hidden rounded-[11px] border bg-[repeating-linear-gradient(90deg,rgba(125,227,234,.22)_0_2px,transparent_2px_5px)]"
+        >
+          {chapters.map((chapter) => (
+            <span
+              key={chapter.key}
+              className="bg-kf-accent absolute inset-y-0 w-0.5"
+              style={{
+                left: `${Math.min(100, Math.max(0, (chapter.startSeconds / durationSeconds) * 100))}%`,
+              }}
+            />
+          ))}
+        </div>
       )}
 
       <ul className="flex flex-col gap-3">
@@ -125,7 +143,7 @@ export function ChapterEditor({
           return (
             <li
               key={chapter.key}
-              className={`rounded-kf-thumb border p-3 ${hasRowError ? "border-kf-danger" : "border-kf-line"}`}
+              className={`bg-kf-bg rounded-kf-thumb border p-3 ${hasRowError ? "border-kf-danger" : "border-kf-line"}`}
             >
               <div className="flex items-start gap-2.5">
                 <span className="text-kf-mut2 mt-2 w-6 shrink-0 font-mono text-[12px]">

@@ -14,9 +14,23 @@ export default function AdminLoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, INITIAL_STATE);
 
   return (
-    <main className="flex min-h-full items-center justify-center px-5">
+    <main className="flex min-h-screen items-center justify-center px-5">
       <form action={formAction} className="border-kf-line bg-kf-surface rounded-kf-card w-full max-w-90 border p-6">
-        <h1 className="mb-5 text-[18px] font-semibold tracking-[-0.02em]">Keyframe admin</h1>
+        <div className="mb-5">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="border-kf-accent flex size-5 items-center justify-center rounded-md border-[1.5px]"
+            >
+              <span className="bg-kf-accent block size-1.25 rounded-[1px]" />
+            </span>
+            <h1 className="text-[18px] font-semibold tracking-[-0.02em]">Keyframe</h1>
+            <span className="border-kf-line-strong text-kf-mut rounded-[5px] border px-1.5 py-0.5 font-mono text-[9px] tracking-[0.14em]">
+              ADMIN
+            </span>
+          </div>
+          <p className="text-kf-mut mt-2.5 text-[13px]">Prijavi se da upravljaš snimcima.</p>
+        </div>
 
         {state.formError && (
           <p id="password-error" role="alert" className="text-kf-danger mb-4 text-[13px]">
