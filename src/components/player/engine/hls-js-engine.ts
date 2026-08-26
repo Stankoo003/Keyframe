@@ -194,6 +194,14 @@ export async function createHlsJsEngine(
     emit({ type: "levels", levels });
   });
 
+  /**
+   * `LEVEL_SWITCHING`, ne `LEVEL_SWITCHED`: potonji prati STVARNO ODIGRAN
+   * fragment (vidi `checkFragmentChanged` u hls.js), pa kod velikog vec-baferovanog
+   * sadrzaja moze da kasni desetinama sekundi za rucnim izborom — <select> bi
+   * tiho "otkazao" izbor sve dok playback stvarno ne stigne do novog nivoa.
+   * `LEVEL_SWITCHING` prati ODLUKU (rucnu ili ABR), sto je i UI-u i Stats
+   * overlay-u potrebno da odmah odrazi izbor.
+   */
   hls.on(HlsCtor.Events.LEVEL_SWITCHING, (_e, data) => {
     // Odbrana: ako nesto (ABR ili rucni izbor) ipak pokusa da izabere
     // vec-iskljuceni nivo, odmah ga preusmeri — ne emituj switch ka njemu.
@@ -202,12 +210,28 @@ export async function createHlsJsEngine(
       if (fallback !== null) hls.nextLevel = fallback;
       return;
     }
-    emit({ type: "levelswitched", level: hls.autoLevelEnabled ? AUTO_LEVEL : data.level });
+    emit({
+      type: "levelswitched",
+      level: hls.autoLevelEnabled ? AUTO_LEVEL : data.level,
+      actualLevel: data.level,
+      auto: hls.autoLevelEnabled,
+    });
   });
 
-  hls.on(HlsCtor.Events.FRAG_LOADED, () => {
+  hls.on(HlsCtor.Events.FRAG_LOADED, (_e, data) => {
     mediaRetryAttempt = 0;
     onRecoveringSuccess();
+
+    // Isti dogadjaj hrani i Stats overlay: uspesno ucitan fragment je i dokaz
+    // oporavka i jedini izvor stvarnog fetch vremena.
+    const { loading } = data.frag.stats;
+    emit({
+      type: "fragloaded",
+      level: data.frag.level,
+      loadTimeMs: loading.end - loading.start,
+      sizeBytes: data.frag.stats.loaded,
+      durationS: data.frag.duration,
+    });
   });
   hls.on(HlsCtor.Events.LEVEL_LOADED, () => {
     onRecoveringSuccess();
@@ -229,7 +253,10 @@ export async function createHlsJsEngine(
       details: data.details,
       fatal: data.fatal,
       level: levelIndex,
-      attempt: data.fatal && data.type === HlsCtor.ErrorTypes.NETWORK_ERROR ? networkRetryAttempt : undefined,
+      attempt:
+        data.fatal && data.type === HlsCtor.ErrorTypes.NETWORK_ERROR
+          ? networkRetryAttempt
+          : undefined,
       message: data.fatal ? "fatalna greška" : "ne-fatalna greška (hls.js interno rešava)",
       url: data.url ?? data.frag?.url,
     });
@@ -306,11 +333,13 @@ export async function createHlsJsEngine(
   return {
     getLevels: () => levels,
     getCurrentLevel: () => (hls.autoLevelEnabled ? AUTO_LEVEL : hls.currentLevel),
+    getActualLevel: () => hls.currentLevel,
     setLevel: (index: number) => {
       // -1 vraća hls.js na automatski ABR; inače fiksira nivo.
       hls.currentLevel = index;
     },
     supportsLevelSelection: () => true,
+    getBandwidthEstimate: () => hls.bandwidthEstimate ?? null,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

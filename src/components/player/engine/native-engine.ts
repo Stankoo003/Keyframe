@@ -154,10 +154,14 @@ export function createNativeEngine(video: HTMLVideoElement, src: string): Playba
   return {
     getLevels: () => [],
     getCurrentLevel: () => AUTO_LEVEL,
+    // Nema ladder ni ABR vidljiv skripti — nema ni "stvarnog" nivoa da se prijavi.
+    getActualLevel: () => AUTO_LEVEL,
     setLevel: () => {
       // Native HLS ne dozvoljava ručni izbor nivoa — no-op.
     },
     supportsLevelSelection: () => false,
+    // Safari ne izlaze estimator propusnog opsega van hls.js.
+    getBandwidthEstimate: () => null,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

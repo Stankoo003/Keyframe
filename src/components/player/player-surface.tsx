@@ -16,12 +16,16 @@ import { formatTime } from "@/lib/format";
 import { CaptionOverlay } from "./caption-overlay";
 import { CaptionSettingsModal } from "./caption-settings-modal";
 import { CONTROLS_HIDE_MS, SEEK_STEP_SECONDS, VOLUME_STEP } from "./constants";
+import type { PlaybackEngine } from "./engine/types";
+import { PlayerContextMenu } from "./player-context-menu";
 import { PlayerControls } from "./player-controls";
+import { StatsOverlay } from "./stats-overlay";
 import { useAnnouncer, useAnnounceOnChange } from "./use-announcer";
 import { useLocalSubtitle } from "./use-local-subtitle";
 import { useSubtitleTracks } from "./use-subtitle-tracks";
 import type { ThumbnailMap } from "./use-thumbnails";
 import type { PlayerActions, PlayerState } from "./use-player";
+import { usePlayerStats } from "./use-player-stats";
 
 /** Koliko se ceka pre objave pozicije — vidi `useAnnouncer`. */
 const POSITION_ANNOUNCE_DELAY_MS = 600;
@@ -53,6 +57,7 @@ export function PlayerSurface({
     containerRef: React.RefObject<HTMLElement | null>;
     state: PlayerState;
     actions: PlayerActions;
+    engineRef: React.RefObject<PlaybackEngine | null>;
   };
   title?: string;
   poster?: string | null;
@@ -74,7 +79,7 @@ export function PlayerSurface({
   /** Titlovi; prazno je legitimno i onemogucuje CC kontrolu. */
   subtitles?: readonly SubtitleDto[];
 }) {
-  const { videoRef, containerRef, state, actions } = player;
+  const { videoRef, containerRef, state, actions, engineRef } = player;
 
   /**
    * Titlovi se preuzimaju i konvertuju pre nego sto dodju do <track> elementa —
@@ -165,6 +170,18 @@ export function PlayerSurface({
   }, []);
 
   const closeCaptionSettings = useCallback(() => setCaptionSettingsOpen(false), []);
+
+  /**
+   * "Stats for nerds" — off by default (obican `useState`, ne localStorage):
+   * zahtev je da nikad ne bude prikazan dok se izricito ne zatrazi, ne da
+   * prezivi refresh stranice.
+   */
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const statsSnapshot = usePlayerStats(videoRef, engineRef, statsOpen);
+
+  const closeStats = useCallback(() => setStatsOpen(false), []);
+  const toggleStats = useCallback(() => setStatsOpen((open) => !open), []);
 
   /**
    * Vidljivost se IZVODI, ne drži u zasebnom stanju: na pauzi su kontrole uvek
@@ -305,6 +322,12 @@ export function PlayerSurface({
           if (inFormControl) return;
           actions.toggleCaptions();
           break;
+
+        case "d":
+        case "D":
+          // Mnemonik "debug/dijagnostika" — nije zauzeto drugom precicom.
+          toggleStats();
+          break;
         default:
           handled = false;
       }
@@ -314,8 +337,14 @@ export function PlayerSurface({
         revealControls();
       }
     },
-    [actions, revealControls],
+    [actions, revealControls, toggleStats],
   );
+
+  const onContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setContextMenu({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
+  }, []);
 
   return (
     <div
@@ -326,6 +355,7 @@ export function PlayerSurface({
       onKeyDown={onKeyDown}
       onPointerMove={revealControls}
       onFocus={revealControls}
+      onContextMenu={onContextMenu}
       className="border-kf-line rounded-kf-card focus-visible:outline-kf-accent relative overflow-hidden border bg-black focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       {/*
@@ -431,6 +461,19 @@ export function PlayerSurface({
                   dalje gledljiv, pa poruka ne sme da zameni ceo plejer. */}
               {localSubtitle.error && <p>{localSubtitle.error}</p>}
             </div>
+          )}
+
+          {statsOpen && <StatsOverlay snapshot={statsSnapshot} onClose={closeStats} />}
+
+          {contextMenu && (
+            <PlayerContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              statsEnabled={statsOpen}
+              onToggleStats={toggleStats}
+              onClose={() => setContextMenu(null)}
+              returnFocusTo={containerRef}
+            />
           )}
 
           {/*

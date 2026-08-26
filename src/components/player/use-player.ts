@@ -211,6 +211,8 @@ export function usePlayer(src: string) {
           else if (event.type === "error") patch({ error: event.message, recovering: false });
           // "degraded" ne trazi posebno UI polje — `levels`/`currentLevel"
           // patch iznad vec pokriva sta korisnik treba da vidi.
+          // "fragloaded" ne dodiruje PlayerState — Stats overlay se pretplacuje
+          // direktno na engine, vidi use-player-stats.ts.
         });
       } catch (err: unknown) {
         if (!disposed) patch({ error: err instanceof Error ? err.message : String(err) });
@@ -482,5 +484,5 @@ export function usePlayer(src: string) {
     retryPlayback: useCallback(() => setRetryNonce((n) => n + 1), []),
   };
 
-  return { videoRef, containerRef, state, actions };
+  return { videoRef, containerRef, state, actions, engineRef };
 }
